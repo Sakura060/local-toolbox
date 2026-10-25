@@ -73,6 +73,19 @@ def main() -> int:
         page.goto(base + "/")
         page.wait_for_selector(".card", timeout=15000)
         check("home renders", page.locator(".card").count() >= 10)
+        # 首启横幅「去自检」按钮可用（曾长期无 onclick 的老 bug，2026-10-25 修复）。
+        # settings 落在真实 data/，先临时置 first_run_done=false 让横幅出现，验证后立即恢复。
+        api("POST", "/api/settings", {"first_run_done": False})
+        page.goto(base + "/")
+        page.wait_for_timeout(600)
+        if page.locator("#envfirst").count() == 1:
+            page.click("#envfirst")
+            page.wait_for_url("**/#/env", timeout=8000)
+            page.wait_for_selector("text=环境自检", timeout=8000)
+            check("envfirst banner navigates to /env", True)
+        else:
+            check("envfirst banner navigates to /env", False, "banner missing")
+        api("POST", "/api/settings", {"first_run_done": True})
 
         # 2. 向导第 1 步
         page.goto(base + "/#/import")

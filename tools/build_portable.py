@@ -28,9 +28,26 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "发布包-桌面版"
-OUT = BUILD / "ToolHub桌面版"
+
+
+def _read_version() -> str:
+    """版本号唯一来源：desktop/__init__.py（与 _app_version 同源）。"""
+    init = (ROOT / "ToolHub-工具箱门户" / "desktop" / "__init__.py").read_text(
+        encoding="utf-8")
+    m = re.search(r'__version__\s*=\s*"([^"]+)"', init)
+    if not m:
+        raise SystemExit("读不到 desktop/__init__.py 的 __version__——拒绝用猜测的版本号打包")
+    return m.group(1)
+
+
+VERSION = _read_version()
+# 版本化输出（2026-10-25 用户要求）：每个版本的产物进独立子文件夹 v<版本>/，
+# 新版本构建永不覆盖旧版本；runtime 缓存（476MB，版本无关）留在共享目录幂等复用。
+VDIR = BUILD / ("v" + VERSION)
+OUT = VDIR / "ToolHub桌面版"
 APP = OUT / "AppToolHub"
-RUNTIME = APP / "runtime"
+RUNTIME = BUILD / "_runtime"          # 共享缓存：stage_runtime 在这里幂等复用
+OUT_RUNTIME = APP / "runtime"         # 构建产物里的 runtime（从缓存复制）
 WS = APP / "workspace"
 MODELS = APP / "models" / "hf"
 
@@ -279,7 +296,7 @@ def stage_launchers() -> None:
 
 
 def stage_zip() -> None:
-    zip_path = BUILD / "ToolHub桌面版-便携版.zip"
+    zip_path = VDIR / "ToolHub桌面版-便携版.zip"
     if zip_path.exists():
         zip_path.unlink()
     log("[5] 压缩中（几分钟）…")
@@ -290,33 +307,26 @@ def stage_zip() -> None:
     log(f"[5] {zip_path.name}（{human(zip_path.stat().st_size)}）")
 
 
-def _app_version() -> str:
-    """版本号唯一来源：desktop/__init__.py 的 __version__。
-    曾经硬编码 0.1.0 导致 v0.2 重打包时安装包版本仍显示 0.1.0（2026-10-25 审计发现）。"""
-    init = (ROOT / "ToolHub-工具箱门户" / "desktop" / "__init__.py").read_text(encoding="utf-8")
-    m = re.search(r'__version__\s*=\s*"([^"]+)"', init)
-    if not m:
-        raise SystemExit("读不到 desktop/__init__.py 的 __version__——拒绝用猜测的版本号打包")
-    return m.group(1)
+# （原 _app_version() 已上移为模块级 VERSION：版本化输出目录需要在导入期就知道版本号）
 
 
 def write_inno_script() -> None:
-    iss = BUILD / "inno" / "ToolHub桌面版.iss"
+    iss = VDIR / "inno" / "ToolHub桌面版.iss"
     iss.parent.mkdir(parents=True, exist_ok=True)
     iss.write_text(f"""; Inno Setup 脚本 —— ToolHub 桌面版安装包
 ; 编译：ISCC.exe ToolHub桌面版.iss（Inno Setup 6）
-; AppVersion 由 _app_version() 从 desktop/__init__.py 注入，勿手改
+; AppVersion 由 _read_version() 从 desktop/__init__.py 注入，勿手改
 
 [Setup]
 AppName=ToolHub 工具箱
-AppVersion={_app_version()}
+AppVersion={VERSION}
 AppPublisher=ToolHub Desktop
 DefaultDirName={{localappdata}}\\ToolHub
 DefaultGroupName=ToolHub 工具箱
 PrivilegesRequired=lowest
 Compression=lzma2/max
 SolidCompression=yes
-OutputDir={BUILD.as_posix()}
+OutputDir={VDIR.as_posix()}
 OutputBaseFilename=ToolHub桌面版-安装包
 SetupIconFile={ (ROOT / "ToolHub-工具箱门户" / "docs" / "app.ico").as_posix() }
 UninstallDisplayIcon={{app}}\\AppToolHub\\runtime\\pythonw.exe
@@ -337,23 +347,15 @@ Filename: "{{app}}\\AppToolHub\\runtime\\pythonw.exe"; Parameters: "cli.py deskt
 
 def main() -> None:
     BUILD.mkdir(parents=True, exist_ok=True)
-    # 只清"会重建"的部分；runtime 交由 stage_runtime 的幂等护栏决定去留
-    # （否则每次构建都白装 8 分钟依赖——本轮吃过的亏）
-    for child in ("ToolHub桌面版/AppToolHub/workspace",
-                  "ToolHub桌面版/AppToolHub/models",
-                  "ToolHub桌面版-便携版.zip"):
-        p = BUILD / child
-        if p.is_dir():
-            shutil.rmtree(p)
-        elif p.exists():
-            p.unlink()
-    for f in OUT.glob("*.bat"):
-        f.unlink()
-    readme = OUT / "使用说明.txt"
-    if readme.exists():
-        readme.unlink()
-    log("== ToolHub 桌面版可移植包构建 ==")
-    stage_runtime()
+    VDIR.mkdir(parents=True, exist_ok=True)
+    if OUT.exists():
+        # 同版本重复构建：清整个产物目录（runtime 从共享缓存重新复制）
+        shutil.rmtree(OUT)
+    log(f"== ToolHub 桌面版可移植包构建 v{VERSION} → {VDIR.name}/ ==")
+    stage_runtime()                 # 幂等维护共享缓存 BUILD/_runtime
+    log(f"[1c] 复制 runtime 到本版本产物（{human(dir_size(RUNTIME))}）…")
+    shutil.copytree(RUNTIME, OUT_RUNTIME,
+                    ignore=shutil.ignore_patterns("*.pyc", "__pycache__"))
     copy_workspace()
     stage_models()
     stage_launchers()

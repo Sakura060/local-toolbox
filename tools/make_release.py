@@ -192,8 +192,15 @@ def main() -> int:
     include_dirs.update(t.launch_dir for t in BUILTINS if t.launch_dir)
 
     if OUT.exists():
-        shutil.rmtree(OUT)
-    REPO.mkdir(parents=True)
+        # repo/ 已是 git 仓库（首发后持久化）：重建时保留 .git，只清其余内容
+        for child in REPO.iterdir() if REPO.is_dir() else []:
+            if child.name == ".git":
+                continue
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+    REPO.mkdir(parents=True, exist_ok=True)
 
     total = 0
     for name in sorted(include_dirs):
@@ -248,11 +255,11 @@ def main() -> int:
         print("  big files (>5MB):", big)
         return 1
 
-    # ---- zip（人工审查用） ----
+    # ---- zip（人工审查用；不含 .git） ----
     zip_path = ROOT / "发布包-GitHub.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         for p in sorted(REPO.rglob("*")):
-            if p.is_file():
+            if p.is_file() and ".git" not in p.parts:
                 z.write(p, Path("repo") / p.relative_to(REPO))
 
     print(f"\nOK files={total} -> {REPO}")

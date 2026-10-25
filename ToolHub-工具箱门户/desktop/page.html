@@ -615,7 +615,10 @@ function renderHome() {
   v.innerHTML = html;
   bindCards(v);
   enableDrag(v);
+  var ef = document.getElementById("envfirst");
+  if (ef) ef.onclick = function () { location.hash = "#/env"; };
 }
+
 function bindCards(scope) {
   Array.prototype.forEach.call(scope.querySelectorAll("[data-launch]"), function (b) {
     b.onclick = function () { launch(b.getAttribute("data-launch")); };
