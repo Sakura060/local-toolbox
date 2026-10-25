@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文档户口本 — 同一文档的 N 个副本，理清谁是谁</title>
+<style>
+  :root{--bg:#101418;--panel:#171c22;--line:#242c34;--text:#dfe6ec;--dim:#8a97a3;
+    --blue:#4da3ff;--green:#7ee0a3;--amber:#ffce6b;--red:#ff7d7d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei UI",system-ui,sans-serif}
+  header{background:var(--panel);border-bottom:1px solid var(--line);
+    padding:12px 16px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .logo{font-size:19px;font-weight:700}.logo b{color:var(--amber)}
+  .sub{color:var(--dim);font-size:12px}
+  button{padding:9px 14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--bg);color:var(--text);cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--amber);color:var(--amber)}
+  main{max-width:920px;margin:0 auto;padding:16px}
+  #bar{height:6px;background:var(--line);border-radius:3px;display:none;
+    margin-bottom:12px;overflow:hidden}
+  #bar>i{display:block;height:100%;background:var(--amber);width:0;transition:width .3s}
+  .cluster{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:12px;cursor:pointer}
+  .cluster:hover{border-color:var(--amber)}
+  .ctitle{font-weight:600;font-size:14px;word-break:break-all}
+  .cmeta{color:var(--dim);font-size:12px;margin-top:4px}
+  .flag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;
+    margin-right:6px}
+  .f-latest{background:#15301f;color:var(--green)}
+  .f-fork{background:#332a12;color:var(--amber)}
+  .f-dup{background:#12283f;color:var(--blue)}
+  .member{display:flex;gap:8px;align-items:baseline;padding:5px 8px;border-radius:8px;
+    font-size:12.5px;cursor:pointer;border:1px solid transparent}
+  .member:hover{border-color:var(--line);background:var(--bg)}
+  .member.sel{border-color:var(--amber);background:var(--bg)}
+  .member .mt{color:var(--dim);font-size:11px;min-width:110px}
+  .member .nm{flex:1;word-break:break-all}
+  .member.latest .nm{color:var(--green);font-weight:600}
+  #detail{display:none}
+  #back{margin-bottom:12px}
+  .tree{border-left:2px solid var(--line);margin-left:10px;padding-left:18px}
+  .tstep{position:relative;padding:6px 0}
+  .tstep:before{content:"";position:absolute;left:-23px;top:14px;width:8px;height:8px;
+    border-radius:99px;background:var(--blue)}
+  .tstep.latest:before{background:var(--green)}
+  .diffbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px;margin-top:10px}
+  .dstat{font-size:12px;color:var(--dim);margin-bottom:8px}
+  .dstat b{color:var(--amber)}
+  .drow{padding:6px 10px;border-radius:6px;margin:4px 0;font-size:13px;
+    line-height:1.7;word-break:break-all;white-space:pre-wrap}
+  .d-add{background:#12291a;border-left:3px solid var(--green)}
+  .d-del{background:#2c1517;border-left:3px solid var(--red);text-decoration:line-through;
+    color:#d8a7a7}
+  .d-mod{background:#2a2412;border-left:3px solid var(--amber)}
+  .d-old{color:#b8b09a}
+  .d-same{color:var(--dim);font-size:12px}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:#2a1215;color:#ffb4ae;border:1px solid #5c2a2c;padding:8px 16px;
+    border-radius:10px;font-size:13px;display:none}
+  #empty{color:var(--dim);text-align:center;padding:50px 0;line-height:2}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div class="logo">文档户口<b>本</b></div>
+    <div class="sub" id="stats">加载中…</div>
+    <button id="scan">扫描文档目录</button>
+    <button id="adddir">＋ 目录</button>
+  </div>
+  <div id="bar"><i></i></div>
+  <div id="scanstate" style="display:none;color:var(--dim);font-size:12px;margin-top:6px"></div>
+</header>
+<main>
+  <div id="list-view">
+    <p style="color:var(--dim);font-size:12px;line-height:1.9">
+      把散落的 <b style="color:var(--amber)">方案-v3-最终版-真的最终版.docx</b> 们理清楚：
+      同源自动聚类 → 谱系树标出「哪份最新」→ 任意两版逐段对比。<br>
+      点一个簇看谱系；点两份文档做对比。全部本地解析，原文只读不动。</p>
+    <div id="clusters"></div>
+    <div id="empty" style="display:none"></div>
+  </div>
+
+  <div id="detail">
+    <button id="back">← 返回簇列表</button>
+    <div class="cluster" id="tree"></div>
+    <div class="diffbox" id="diff" style="display:none"></div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => {const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;};
+const fmtT = ts => {const d=new Date(ts*1000);const p=x=>String(x).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;};
+let selA = null, selB = null, curCluster = null, pollTimer = null;
+
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",3000);}
+async function api(p,o){const r=await fetch(p,o);return r.json();}
+
+async function refreshStats(){
+  const st = await api("/api/stats");
+  $("#stats").textContent = `${st.docs} 份文档 · ${st.clusters} 个同源簇 · ${st.forked} 个分叉`;
+  const idx = st.indexing||{};
+  if(idx.active){
+    $("#bar").style.display="block";
+    const pct = idx.total? Math.round(idx.done/idx.total*100):0;
+    $("#bar>i").style.width = pct+"%";
+    $("#scanstate").innerHTML = `正在扫描 <b>${idx.done}/${idx.total}</b>（${pct}%）${idx.current? " · "+(idx.current.split("\\").pop()||""):""}`;
+  } else {
+    $("#bar").style.display="none";
+    const s = idx.last_summary;
+    if(s && s.processed !== undefined && s.total !== undefined){
+      $("#scanstate").innerHTML = `上次扫描：共 ${s.total} 个文件，读取 <b>${s.processed}</b>，跳过未变 ${s.skipped}，清理失效 ${s.purged}，同源簇 ${s.clusters}`;
+    }
+    if(!pollTimer) loadClusters();
+  }
+}
+
+async function loadClusters(){
+  const data = await api("/api/clusters");
+  const box = $("#clusters"); box.innerHTML = "";
+  const multi = data.clusters.filter(c => c.size > 1);
+  $("#empty").style.display = multi.length ? "none" : "block";
+  $("#empty").innerHTML = "还没有发现同源副本组。点右上角「扫描文档目录」。<br>" +
+    "最常命中：微信接收的文档、桌面与下载夹的同一份文件。";
+  for(const c of multi){
+    const d = document.createElement("div");
+    d.className = "cluster";
+    const flags = [];
+    if(c.latest_name) flags.push(`<span class="flag f-latest">最新：${esc(c.latest_name)}</span>`);
+    if(c.fork) flags.push(`<span class="flag f-fork">⚠ 分叉：多个不同终版</span>`);
+    d.innerHTML = `<div class="ctitle">${esc(c.latest_name||"未命名簇")}</div>
+      <div class="cmeta">${c.size} 份副本 · 最新保存 ${fmtT(c.latest_mtime||0)} ${flags.join(" ")}</div>`;
+    d.onclick = () => openCluster(c);
+    box.appendChild(d);
+  }
+}
+
+function openCluster(c){
+  curCluster = c; selA = selB = null;
+  $("#list-view").style.display = "none";
+  $("#detail").style.display = "block";
+  renderTree(c);
+  $("#diff").style.display = "none";
+  window.scrollTo(0,0);
+}
+
+function renderTree(c){
+  const latest = c.latest_id;
+  const byId = {}; for(const m of c.members) byId[m.id] = m;
+  const childOf = {};
+  for(const e of c.edges) (childOf[e.parent_id] = childOf[e.parent_id] || []).push(e.child_id);
+  const isChild = new Set((c.edges||[]).map(e => e.child_id));
+  const roots = c.members.filter(m => !isChild.has(m.id));
+  const tree = $("#tree");
+  tree.innerHTML = `<div class="ctitle">谱系（${c.members.length} 份）</div>
+    <div class="cmeta">点选任意两份做对比；绿 = 当前最新版</div><div class="tree" id="tbody"></div>`;
+  const tb = $("#tbody");
+  function node(id, depth, dupRoot){
+    const m = byId[id]; if(!m) return;
+    const dupNote = (c.derived.dup_groups||[]).find(g => g.includes(id));
+    const step = document.createElement("div");
+    step.className = "tstep" + (id===latest ? " latest" : "");
+    step.innerHTML = `<div class="member" data-id="${id}">
+      <span class="mt">${fmtT(m.mtime)}</span>
+      <span class="nm">${esc(m.name)}${id===latest?"　✔ 最新":""}</span>
+      ${dupNote && dupNote[1]===id ? `<span class="flag f-dup">重复副本</span>`:""}
+      <span style="color:var(--dim);font-size:11px">${m.block_count} 段</span></div>`;
+    tb.appendChild(step);
+    for(const ch of (childOf[id]||[])) node(ch, depth+1, dupRoot);
+  }
+  for(const r of roots) node(r.id, 0, null);
+  tb.querySelectorAll(".member").forEach(el => {
+    el.onclick = () => pick(parseInt(el.dataset.id), el);
+  });
+}
+
+function pick(id, el){
+  if(selA === id || selB === id) return;
+  if(selA === null){ selA = id; el.classList.add("sel"); }
+  else if(selB === null){ selB = id; el.classList.add("sel"); showDiff(); }
+  else { // 重置选择
+    document.querySelectorAll(".member.sel").forEach(x => x.classList.remove("sel"));
+    selA = id; selB = null; el.classList.add("sel");
+    $("#diff").style.display = "none";
+  }
+}
+
+async function showDiff(){
+  const box = $("#diff"); box.style.display = "block"; box.scrollIntoView({behavior:"smooth"});
+  box.innerHTML = `<div class="dstat">对比中…</div>`;
+  const data = await api(`/api/diff?a=${selA}&b=${selB}`);
+  const d = data.diff;
+  const older = data.a.mtime <= data.b.mtime ? data.a : data.b;
+  const newer = older === data.a ? data.b : data.a;
+  let html = `<div class="dstat">
+    <b>${esc(older.name)}</b>（旧，${fmtT(older.mtime)}）→
+    <b>${esc(newer.name)}</b>（新，${fmtT(newer.mtime)}）：
+    +${d.added.length} 段新增 　-${d.removed.length} 段删除 　~${d.changed.length} 段修改 　${d.same} 段相同</div>`;
+  const rows = [];
+  for(const c of d.changed)
+    rows.push(`<div class="drow d-mod"><div class="d-old">${esc(c.old)}</div>${esc(c.new)}</div>`);
+  for(const r of d.removed) rows.push(`<div class="drow d-del">${esc(r)}</div>`);
+  for(const t of d.added) rows.push(`<div class="drow d-add">${esc(t)}</div>`);
+  html += rows.join("") || `<div class="d-same">两份内容一致（重复副本）</div>`;
+  box.innerHTML = html;
+}
+
+$("#back").onclick = () => { $("#detail").style.display="none";
+  $("#list-view").style.display="block"; loadClusters(); };
+$("#scan").onclick = async () => {
+  const r = await api("/api/scan",{method:"POST",body:"{}"});
+  if(!r.ok) toast(r.error||"扫描失败");
+  else { toast(r.started?"扫描已开始":"扫描进行中"); refreshStats(); }
+};
+$("#adddir").onclick = async () => {
+  const p = prompt("输入要扫描的文件夹路径（例如 C:\\Users\\你的用户名\\Documents）：", "");
+  if(!p) return;
+  const r = await api("/api/scan",{method:"POST",body:JSON.stringify({paths:[p]})});
+  if(r.ok){ toast("已添加并开始扫描"); refreshStats(); } else toast(r.error);
+};
+
+setInterval(refreshStats, 2000);
+refreshStats();
+</script>
+</body>
+</html>

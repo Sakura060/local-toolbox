@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FileFlow — 智能文件整理器</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0;
+         background: #f4f6f8; color: #1c2430; }
+  header { background: #1d3557; color: #fff; padding: 18px 28px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; opacity: .75; font-size: 13px; }
+  main { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 18px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type=text] { flex: 1; min-width: 280px; padding: 10px 12px; background: #fff;
+                     color: #1c2430; border: 1px solid #c8d0da; border-radius: 8px;
+                     font-size: 14px; }
+  button { padding: 10px 18px; border: 0; border-radius: 8px; cursor: pointer;
+           font-size: 14px; background: #457b9d; color: #fff; }
+  button.secondary { background: #6c757d; }
+  button.danger { background: #b5443c; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  #summary { font-size: 14px; color: #445; }
+  #summary b { color: #1d3557; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #e6eaef;
+           word-break: break-all; }
+  th { background: #eef2f6; color: #34405a; }
+  td.rule { color: #2a6f97; white-space: nowrap; }
+  td.size { color: #777; white-space: nowrap; }
+  .muted { color: #8a93a2; font-size: 13px; }
+  #msg { margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+         font-size: 14px; display: none; }
+  .ok  { background: #e7f6ec; color: #1e6b3a; }
+  .err { background: #fdeceb; color: #a1322b; }
+  .warn{ background: #fdf3e2; color: #8a6116; }
+  .bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #667; }
+  .spin { width: 14px; height: 14px; border: 2px solid #bbb; border-top-color: #457b9d;
+          border-radius: 50%; animation: r 0.8s linear infinite; display: none; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  details { margin-top: 10px; font-size: 13px; }
+  .ok-badge { color: #1e6b3a; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FileFlow 智能文件整理器</h1>
+  <p>预览 → 执行 → 可撤销 · 本地运行，数据不出机器</p>
+</header>
+<main>
+  <div class="card">
+    <div class="row">
+      <input id="dir" type="text" placeholder="要整理的目录，例如 C:\Users\你\Downloads">
+      <button id="btnPlan">预览整理计划</button>
+      <button id="btnRun" class="danger" disabled>执行整理</button>
+      <button id="btnUndo" class="secondary">撤销上次</button>
+    </div>
+    <div class="bar" style="margin-top:10px">
+      <div class="spin" id="spin"></div><span id="hint" class="muted"></span>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card" id="planCard" style="display:none">
+    <div id="summary"></div>
+    <table id="planTable">
+      <thead><tr><th>原位置</th><th>→</th><th>规则</th><th>大小</th></tr></thead>
+      <tbody id="planBody"></tbody>
+    </table>
+    <details><summary class="muted">无匹配规则、保持原位的文件</summary>
+      <div id="unmatchedList" class="muted" style="margin-top:8px"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <b style="font-size:14px">重复文件清理</b> <span class="muted">（内容完全相同的文件，保留最旧一份，其余移入回收目录）</span>
+    <div class="row" style="margin-top:10px">
+      <button id="btnDup">查找重复文件</button>
+      <button id="btnDupClean" class="danger" disabled>清理多余副本</button>
+      <span id="dupSummary" class="muted"></span>
+    </div>
+    <table id="dupTable" style="display:none">
+      <thead><tr><th>文件（同组内容相同）</th><th>大小</th></tr></thead>
+      <tbody id="dupBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <b style="font-size:14px">自动监控</b> <span class="muted">（定时扫描目录并自动整理新文件；文件静置一段时间后才动，避免打断下载）</span>
+    <div class="row" style="margin-top:10px">
+      <button id="btnWatchStart">开始监控</button>
+      <button id="btnWatchStop" class="secondary" disabled>停止监控</button>
+      <span id="watchStatus" class="muted"></span>
+    </div>
+    <div id="watchEvents" class="muted" style="margin-top:10px;white-space:pre-wrap;font-size:12px;max-height:140px;overflow:auto"></div>
+  </div>
+
+  <div class="card">
+    <b style="font-size:14px">历史操作日志</b> <span class="muted">（undo 可指定其中一条）</span>
+    <table><tbody id="logBody"></tbody></table>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let currentDir = "";
+
+function msg(text, cls) {
+  const el = $("msg");
+  el.textContent = text;
+  el.className = cls;
+  el.style.display = text ? "block" : "none";
+}
+function busy(on, hint) {
+  $("spin").style.display = on ? "inline-block" : "none";
+  $("hint").textContent = hint || "";
+  $("btnPlan").disabled = on;
+  $("btnUndo").disabled = on;
+}
+async function api(path, body) {
+  const opt = body ? {method: "POST", headers: {"Content-Type": "application/json"},
+                      body: JSON.stringify(body)}
+                    : {};
+  const res = await fetch(path, opt);
+  const data = await res.json().catch(() => ({error: "响应解析失败"}));
+  if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+function fmtSize(n) {
+  if (n < 1024) return n + " B";
+  const units = ["KB", "MB", "GB", "TB"];
+  let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < units.length - 1);
+  return n.toFixed(1) + " " + units[i];
+}
+function esc(node, text) { node.textContent = text; return node; }  // 防 XSS
+
+function showPlan(p) {
+  currentDir = p.root;
+  $("dir").value = p.root;
+  $("planCard").style.display = "block";
+  $("summary").replaceChildren(
+    esc(document.createElement("span"),
+      `共 ${p.file_count} 个文件（${p.total_size_text}），将移动 ${p.move_count} 个`),
+    esc(document.createElement("span"),
+      `　未匹配 ${p.unmatched} 个保持原位`),
+    p.conflicts_resolved ? esc(document.createElement("span"),
+      `　冲突改名 ${p.conflicts_resolved} 个`) : document.createTextNode("")
+  );
+  const tb = $("planBody");
+  tb.replaceChildren();
+  for (const m of p.moves) {
+    const tr = document.createElement("tr");
+    const td1 = document.createElement("td"); esc(td1, m.src);
+    const td2 = document.createElement("td"); esc(td2, m.dst);
+    const td3 = document.createElement("td"); esc(td3, m.rule); td3.className = "rule";
+    const td4 = document.createElement("td"); esc(td4, fmtSize(m.size)); td4.className = "size";
+    tr.append(td1, td2, td3, td4);
+    tb.append(tr);
+  }
+  const um = $("unmatchedList");
+  um.textContent = p.unmatched ? "见下表" : "无";
+  $("btnRun").disabled = p.move_count === 0;
+  if (!p.move_count) msg("没有需要移动的文件。", "ok");
+}
+
+$("btnPlan").onclick = async () => {
+  const dir = $("dir").value.trim();
+  if (!dir) return msg("请输入目录路径", "warn");
+  busy(true, "正在扫描目录…");
+  try { showPlan(await api("/api/plan", {directory: dir})); }
+  catch (e) { msg("预览失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+
+$("btnRun").onclick = async () => {
+  if (!confirm(`确认执行整理？将移动 ${$("planBody").rows.length} 个文件。`)) return;
+  busy(true, "正在执行…");
+  try {
+    const r = await api("/api/run", {directory: $("dir").value.trim()});
+    msg(`执行完成：移动 ${r.moved} 个，失败 ${r.failed} 个。已生成操作日志，可撤销。`,
+        r.failed ? "warn" : "ok");
+    $("btnRun").disabled = true;
+    loadLogs();
+  } catch (e) { msg("执行失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+
+$("btnUndo").onclick = async () => {
+  if (!confirm("撤销最近一次整理？文件将回到原位置。")) return;
+  busy(true, "正在撤销…");
+  try {
+    const r = await api("/api/undo", {});
+    msg(`撤销完成：恢复 ${r.restored} 个，失败 ${r.failed} 个。`,
+        r.failed ? "warn" : "ok");
+  } catch (e) { msg("撤销失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+
+let dupRoot = "";
+let watchTimer = null;
+
+async function refreshWatch() {
+  try {
+    const r = await api("/api/watch");
+    const active = r.watches.filter(x => x.active);
+    const dir = $("dir").value.trim();
+    let w = active.find(x => x.directory === dir);
+    if (!w && active.length && !dir) {
+      w = active[0];                 // 页面刚打开时自动带出监控中的目录
+      $("dir").value = w.directory;
+    }
+    const box = $("watchEvents");
+    if (w) {
+      $("btnWatchStart").disabled = true;
+      $("btnWatchStop").disabled = false;
+      $("watchStatus").textContent =
+        `监控中：已扫描 ${w.cycles} 轮，累计整理 ${w.moved_total} 个文件（间隔 ${w.interval}s）`;
+      box.textContent = w.events.length ? w.events.slice(-15).join("\n")
+                                        : "（暂无事件，等待新文件…）";
+      if (!watchTimer) watchTimer = setInterval(refreshWatch, 2000);
+    } else if (active.length === 0) {
+      $("btnWatchStart").disabled = false;
+      $("btnWatchStop").disabled = true;
+      $("watchStatus").textContent = "";
+      box.textContent = "";
+      if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+    } else if (dir) {
+      $("watchStatus").textContent = `提示：另有 ${active.length} 个目录正在监控中`;
+    }
+  } catch (e) { /* 轮询失败忽略 */ }
+}
+
+$("btnWatchStart").onclick = async () => {
+  const dir = $("dir").value.trim();
+  if (!dir) return msg("请输入要监控的目录", "warn");
+  if (!confirm("开始自动监控该目录？新文件将在静置 5 秒后自动按规则归类。")) return;
+  busy(true, "正在启动监控…");
+  try {
+    await api("/api/watch/start", {directory: dir, interval: 5, min_age: 5});
+    msg("监控已启动，可在下方查看事件。", "ok");
+    if (!watchTimer) watchTimer = setInterval(refreshWatch, 2000);
+    refreshWatch();
+  } catch (e) { msg("启动失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+
+$("btnWatchStop").onclick = async () => {
+  const dir = $("dir").value.trim();
+  busy(true, "正在停止监控…");
+  try {
+    const r = await api("/api/watch/stop", {directory: dir});
+    msg(`监控已停止（共 ${r.stats.cycles} 轮，整理 ${r.stats.moved_total} 个文件）。`, "ok");
+    $("btnWatchStart").disabled = false;
+    $("btnWatchStop").disabled = true;
+    $("watchStatus").textContent = "";
+    $("watchEvents").textContent = "";
+  } catch (e) { msg("停止失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+$("btnDup").onclick = async () => {
+  const dir = $("dir").value.trim();
+  if (!dir) return msg("请先在上方输入目录路径", "warn");
+  busy(true, "正在查找重复文件（大目录需要一点时间）…");
+  try {
+    const r = await api("/api/dup", {directory: dir});
+    dupRoot = r.root;
+    $("dupTable").style.display = r.groups.length ? "table" : "none";
+    $("btnDupClean").disabled = !r.groups.length;
+    $("dupSummary").textContent = r.groups.length
+      ? `发现 ${r.group_count} 组重复，可释放 ${r.wasted_total_text}`
+      : "未发现重复文件";
+    const tb = $("dupBody");
+    tb.replaceChildren();
+    for (const g of r.groups) {
+      g.paths.forEach((p, idx) => {
+        const tr = document.createElement("tr");
+        const td1 = document.createElement("td");
+        esc(td1, (idx === 0 ? "🔒 保留" : "　") + p);
+        const td2 = document.createElement("td");
+        td2.className = "size";
+        esc(td2, idx === 0 ? fmtSize(g.size) : (idx === 1 ? fmtSize(g.size) + " × " + g.count + " 份" : ""));
+        tr.append(td1, td2);
+        tb.append(tr);
+      });
+    }
+  } catch (e) { msg("查找失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+
+$("btnDupClean").onclick = async () => {
+  if (!dupRoot) return;
+  if (!confirm("把每组重复文件中较新的副本移入回收目录？（保留最旧一份，回收目录可手动检查后再删）")) return;
+  busy(true, "正在清理…");
+  try {
+    const r = await api("/api/dup-clean", {directory: dupRoot});
+    msg(`清理完成：移入回收目录 ${r.moved} 个，失败 ${r.failed} 个。回收目录: ${r.trash}`,
+        r.failed ? "warn" : "ok");
+    $("btnDupClean").disabled = true;
+    $("dupSummary").textContent = "已清理，可重新查找确认";
+  } catch (e) { msg("清理失败: " + e.message, "err"); }
+  finally { busy(false); }
+};
+
+async function loadLogs() {
+  try {
+    const r = await api("/api/logs");
+    const tb = $("logBody");
+    tb.replaceChildren();
+    if (!r.logs.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      esc(td, "暂无日志"); tr.append(td); tb.append(tr);
+      return;
+    }
+    for (const p of r.logs.slice(0, 10)) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.className = "muted";
+      esc(td, p);
+      tr.append(td);
+      tb.append(tr);
+    }
+  } catch (e) { /* 日志加载失败不阻塞主功能 */ }
+}
+loadLogs();
+refreshWatch();
+</script>
+</body>
+</html>

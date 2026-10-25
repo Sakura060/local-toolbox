@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>外发卫士 — 发文件前 30 秒体检</title>
+<style>
+  :root{--bg:#101418;--panel:#171c22;--line:#242c34;--text:#dfe6ec;--dim:#8a97a3;
+    --red:#ff7d7d;--amber:#ffce6b;--green:#7ee0a3;--blue:#4da3ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei UI",system-ui,sans-serif}
+  header{background:var(--panel);border-bottom:1px solid var(--line);
+    padding:12px 16px;display:flex;gap:12px;align-items:center}
+  .logo{font-size:19px;font-weight:700}.logo b{color:var(--red)}
+  .sub{color:var(--dim);font-size:12px}
+  main{max-width:860px;margin:0 auto;padding:20px 16px}
+  #drop{border:2px dashed var(--line);border-radius:14px;padding:52px 20px;
+    text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  #drop.on{border-color:var(--blue);background:#12203a}
+  #drop h2{margin:0 0 6px;font-size:17px;font-weight:600}
+  #drop p{margin:0;color:var(--dim);font-size:12px;line-height:1.8}
+  #busy{text-align:center;color:var(--dim);padding:40px 0;display:none}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;margin-top:14px}
+  .file{font-weight:600;font-size:15px;word-break:break-all}
+  .counts{margin:10px 0 4px}
+  .badge{display:inline-block;padding:3px 12px;border-radius:99px;font-size:12px;
+    margin-right:8px}
+  .b-high{background:#331b1b;color:var(--red)}
+  .b-med{background:#332a12;color:var(--amber)}
+  .b-low{background:#1a232e;color:var(--blue)}
+  .f{border-left:3px solid var(--line);padding:7px 12px;margin:8px 0;border-radius:6px;
+    background:#12171d}
+  .f.high{border-color:var(--red)}
+  .f.med{border-color:var(--amber)}
+  .f.low{border-color:var(--line)}
+  .f .t{font-weight:600;font-size:13px}
+  .f .d{color:var(--dim);font-size:12px;margin-top:3px;word-break:break-all;line-height:1.6}
+  .btn{display:inline-block;padding:10px 18px;border-radius:10px;border:none;
+    background:#3a1518;color:var(--red);cursor:pointer;font-size:14px;font-weight:600}
+  .btn:hover{background:#4d1b1f}
+  .btn.gray{background:#16202b;color:var(--blue)}
+  .result{border-color:var(--green)}
+  .result h3{margin:0 0 6px;font-size:14px;color:var(--green)}
+  .result .kv{font-size:12px;color:var(--dim);line-height:1.9;word-break:break-all}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:#2a1215;color:#ffb4ae;border:1px solid #5c2a2c;padding:8px 16px;
+    border-radius:10px;font-size:13px;display:none}
+  .note{color:var(--dim);font-size:11px;margin-top:14px;line-height:1.8;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">外发<b>卫士</b></div>
+  <div class="sub">发文件前 30 秒体检 · 全程本地 · 净化不覆盖原件</div>
+</header>
+<main>
+  <div id="drop">
+    <h2>把要发出去的文件拖到这里</h2>
+    <p>支持 docx / pptx / xlsx / 图片 / pdf / zip（≤200MB）<br>
+    体检：作者·公司·批注·修订记录·隐藏工作表·GPS 定位·内嵌对象·本机路径泄露</p>
+  </div>
+  <input id="file" type="file" style="display:none">
+  <div id="busy">体检中…</div>
+  <div id="report"></div>
+  <p class="note">净化原理：白名单重组包结构 + 接受全部修订 + 清空元数据。<br>
+  标注「需手工处理」的项无法自动清除（如正文里写的路径、内嵌对象）。原始文件不会被修改。</p>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => {const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;};
+const LABEL = {high:"高危", med:"注意", low:"提示"};
+const AUTO_FIX = {comments:1, revisions:1, thumbnail:1, meta_author:1, meta_company:1,
+  meta_custom:1, meta_template:1, meta_rev:1, hidden_sheets:1, notes:1, ext_links:1,
+  exif_gps:1, exif_device:1, exif_author:1, exif_time:1};
+let curId = null, curName = "";
+
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",3000);}
+
+async function checkFile(file){
+  $("#drop").style.display="none"; $("#report").innerHTML=""; $("#busy").style.display="block";
+  try{
+    const fd = new FormData(); fd.append("file", file, file.name);
+    const r = await fetch("/api/check", {method:"POST", body:fd});
+    const j = await r.json();
+    $("#busy").style.display="none";
+    if(!j.ok){ toast(j.error||"体检失败"); reset(); return; }
+    curId = j.id; curName = j.name;
+    renderReport(j.report);
+  }catch(e){ $("#busy").style.display="none"; toast("上传失败："+e); reset(); }
+}
+
+function renderReport(rep){
+  const c = rep.counts;
+  let html = `<div class="card"><div class="file">${esc(rep.path.split(/[\\\\/]/).pop())}</div>
+    <div class="counts">
+      <span class="badge b-high">高危 ${c.high}</span>
+      <span class="badge b-med">注意 ${c.med}</span>
+      <span class="badge b-low">提示 ${c.low}</span>
+    </div>`;
+  if(!rep.findings.length){
+    html += `<div class="f low"><div class="t">未发现敏感项，可以放心发送 ✅</div></div>`;
+  }
+  for(const f of rep.findings){
+    html += `<div class="f ${f.level}"><div class="t">[${LABEL[f.level]}] ${esc(f.title)}</div>
+      ${f.detail?`<div class="d">${esc(f.detail)}</div>`:""}</div>`;
+  }
+  const fixable = rep.findings.some(f => AUTO_FIX[f.kind] && f.level!=="low");
+  if(fixable) html += `<button class="btn" id="go">一键净化另存并下载</button>`;
+  html += `<button class="btn gray" id="again">再体检一个</button></div>`;
+  $("#report").innerHTML = html;
+  const go = $("#go");
+  if(go) go.onclick = sanitize;
+  $("#again").onclick = reset;
+}
+
+async function sanitize(){
+  const go = $("#go"); if(go){go.disabled=true; go.textContent="净化中…";}
+  try{
+    const r = await fetch("/api/sanitize",{method:"POST",
+      body:JSON.stringify({id:curId})});
+    const j = await r.json();
+    if(!j.ok){ toast(j.error||"净化失败"); if(go){go.disabled=false;go.textContent="一键净化另存并下载";} return; }
+    const rem = j.remaining || [];
+    const card = document.querySelector("#report .card");
+    const div = document.createElement("div");
+    div.className = "card result";
+    div.innerHTML = `<h3>净化完成 ✔（已生成副本，原文件未动）</h3>
+      <div class="kv">已清除部件：${esc((j.result.removed||[]).join("、")||"无")}<br>
+      已改写：${esc((j.result.transformed||[]).join("、")||"无")}<br>
+      净化后复检：高危 ${j.recheck.counts.high} / 注意 ${j.recheck.counts.med}
+      ${rem.length?`<br>仍需手工处理：${esc(rem.map(f=>f.title).join("；"))}`:"<br>复检零风险 ✅"}</div>
+      <br><a class="btn gray" style="text-decoration:none" href="${j.download}">下载净化副本</a>
+      <button class="btn gray" id="again2">再体检一个</button>`;
+    card.appendChild(div);
+    if(go) go.remove();
+    $("#again2").onclick = reset;
+  }catch(e){ toast("净化请求失败："+e); }
+}
+
+function reset(){ curId=null; $("#report").innerHTML=""; $("#drop").style.display="block"; }
+
+const drop = $("#drop");
+drop.onclick = () => $("#file").click();
+$("#file").onchange = e => { if(e.target.files[0]) checkFile(e.target.files[0]); };
+["dragover","dragenter"].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add("on"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove("on"); }));
+drop.addEventListener("drop", e => {
+  const f = e.dataTransfer.files[0];
+  if(f) checkFile(f);
+});
+</script>
+</body>
+</html>

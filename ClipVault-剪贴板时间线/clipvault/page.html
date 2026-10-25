@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+<title>ClipVault 剪贴板时间线</title>
+<style>
+  :root { color-scheme: light;
+    --bg:#f4f6f9; --card:#fff; --text:#1f2937; --muted:#6b7280; --faint:#9aa3af;
+    --border:#e5e7eb; --line:#eef0f3; --accent:#0d9488; --accent-soft:#f0fdfa;
+    --warn:#b45309; --shadow-sm:0 1px 3px rgba(17,24,39,.07); --shadow-lg:0 12px 32px rgba(17,24,39,.16);
+  }
+  html.dark { color-scheme: dark;
+    --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --faint:#64748b;
+    --border:#334155; --line:#26324a; --accent:#2dd4bf; --accent-soft:#134e4a;
+    --warn:#fbbf24; --shadow-sm:0 1px 3px rgba(0,0,0,.4); --shadow-lg:0 12px 32px rgba(0,0,0,.55);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 system-ui,"Segoe UI","Microsoft YaHei",sans-serif; -webkit-font-smoothing:antialiased; }
+  button { font: inherit; }
+  header { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:18px 24px 8px; max-width:900px; margin:0 auto; }
+  .brand { font-size:21px; font-weight:700; }
+  .brand .sub { font-size:13.5px; font-weight:400; color:var(--muted); margin-left:6px; }
+  #stat { margin-left:auto; color:var(--muted); font-size:13px; }
+  .btn { padding:5px 14px; border-radius:8px; font-size:13px; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.danger { color:#dc2626; border-color:#fecaca; }
+  html.dark .btn.danger { color:#f87171; border-color:#7f1d1d; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .top { display:flex; gap:10px; align-items:center; max-width:900px; margin:8px auto 0; padding:0 24px; flex-wrap:wrap; }
+  #q { flex:1; min-width:200px; padding:10px 14px; font-size:15px; border:1px solid var(--border); border-radius:10px; outline:none; background:var(--card); color:var(--text); }
+  #q:focus { border-color:var(--accent); }
+  .kchip { padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--card); color:var(--muted); font-size:13px; cursor:pointer; }
+  .kchip.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  main { max-width:900px; margin:14px auto 40px; padding:0 24px; }
+  .day { color:var(--muted); font-size:12.5px; margin:16px 0 6px; font-weight:600; }
+  .entry { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:11px 14px; margin-bottom:8px; display:flex; gap:11px; box-shadow:var(--shadow-sm); }
+  .entry.pinned { border-color:var(--accent); }
+  .entry.flash { animation:flashbg 2.4s ease-out 1; }
+  @keyframes flashbg { 0%, 40% { background:var(--accent-soft); box-shadow:0 0 0 2px var(--accent); } 100% { background:var(--card); box-shadow:var(--shadow-sm); } }
+  @media (prefers-reduced-motion: reduce) { .entry.flash { animation:none; background:var(--accent-soft); box-shadow:0 0 0 2px var(--accent); } }
+  .kicon { font-size:18px; flex:none; margin-top:1px; }
+  .emid { flex:1; min-width:0; }
+  .ebody { font-size:13.5px; white-space:pre-wrap; word-break:break-all; max-height:88px; overflow:hidden; }
+  .emeta { color:var(--faint); font-size:11.5px; margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .pin-badge { color:var(--accent); font-weight:700; }
+  .eacts { display:flex; gap:6px; flex:none; align-items:flex-start; }
+  .eacts .btn { padding:3px 10px; font-size:12px; }
+  .ethumb { max-width:220px; max-height:100px; border-radius:8px; border:1px solid var(--border); display:block; cursor:pointer; }
+  .empty { text-align:center; color:var(--muted); padding:34px 0; }
+  .paused-note { background:var(--accent-soft); border:1px dashed var(--accent); border-radius:10px; padding:8px 14px; margin:10px 0; font-size:13px; color:var(--text); }
+  .hidden { display:none !important; }
+  #modal { position:fixed; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; padding:24px; z-index:50; }
+  #modal .box { background:var(--card); border:1px solid var(--border); border-radius:14px; max-width:760px; width:100%; max-height:82vh; display:flex; flex-direction:column; box-shadow:var(--shadow-lg); animation:pop .15s ease-out; }
+  @keyframes pop { from { transform:scale(.96); opacity:.5; } }
+  #modal .mhead { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); }
+  #modal .mhead b { flex:1; font-size:14.5px; }
+  #modal .mbody { padding:14px 16px; overflow:auto; white-space:pre-wrap; word-break:break-all; font-size:13.5px; }
+  #modal .mbody img { max-width:100%; max-height:66vh; display:block; margin:0 auto; border-radius:8px; }
+  footer { text-align:center; color:var(--faint); font-size:12.5px; padding:8px 0 24px; }
+  #toast { position:fixed; left:50%; bottom:26px; transform:translate(-50%,10px); background:#111827; color:#f9fafb; padding:9px 18px; border-radius:10px; font-size:13.5px; opacity:0; transition:.22s; pointer-events:none; z-index:60; }
+  #toast.show { opacity:.95; transform:translate(-50%,0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">📋 ClipVault<span class="sub">剪贴板时间线 · 全部数据只在本机</span></div>
+  <div id="stat">加载中…</div>
+</header>
+<div class="top">
+  <input id="q" type="search" aria-label="搜索剪贴板" placeholder="搜索复制过的文本 / 文件路径…" autocomplete="off">
+  <button class="kchip active" data-k="">全部</button>
+  <button class="kchip" data-k="text">📝 文本</button>
+  <button class="kchip" data-k="image">🖼️ 图片</button>
+  <button class="kchip" data-k="files">📁 文件</button>
+  <button id="pausebtn" class="btn">暂停采集</button>
+  <button id="clearbtn" class="btn danger">清空</button>
+</div>
+<main>
+  <div id="pausednote" class="paused-note hidden">⏸ 采集已暂停 —— 恢复后继续记录，暂停期间的复制不会入库</div>
+  <div id="list"></div>
+  <div id="emptybox" class="empty hidden">还没有记录。复制点东西试试（文本 / 截图 / 文件都行）。</div>
+</main>
+<div id="modal" class="hidden">
+  <div class="box">
+    <div class="mhead"><b id="mtitle">详情</b><button class="btn" onclick="closeModal()">关闭</button></div>
+    <div class="mbody" id="mbody"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<footer>ClipVault v0.1 · 每隔 1.5 秒看一眼剪贴板 · 置顶的条目不会被清空/滚动删除</footer>
+
+<script>
+"use strict";
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function relTime(ts) {
+  var diff = Date.now() / 1000 - ts;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return Math.floor(diff / 60) + " 分钟前";
+  if (diff < 86400) return Math.floor(diff / 3600) + " 小时前";
+  var d = new Date(ts * 1000), p = function (n) { return (n < 10 ? "0" : "") + n; };
+  return (d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function dayLabel(ts) {
+  var d = new Date(ts * 1000), p = function (n) { return (n < 10 ? "0" : "") + n; };
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+}
+var KINDICON = { text: "📝", image: "🖼️", files: "📁" };
+var KINDNAME = { text: "文本", image: "图片", files: "文件" };
+var toastTimer = null;
+function toast(msg) {
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2200);
+}
+var FILTER = { kind: "", q: "" };
+var ENTRIES = [];
+
+function post(url, body) {
+  return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); });
+}
+function refreshStats() {
+  fetch("/api/stats").then(function (r) { return r.json(); }).then(function (s) {
+    var el = document.getElementById("stat");
+    el.innerHTML = "<b>" + s.total + "</b> 条 · 📝" + (s.by_kind.text || 0) +
+      " 🖼️" + (s.by_kind.image || 0) + " 📁" + (s.by_kind.files || 0);
+    var paused = !!s.paused;
+    document.getElementById("pausednote").classList.toggle("hidden", !paused);
+    var pb = document.getElementById("pausebtn");
+    pb.textContent = paused ? "▶ 恢复采集" : "⏸ 暂停采集";
+    pb.classList.toggle("primary", paused);
+  }).catch(function () {});
+}
+function load(done) {
+  var qs = "limit=200" + (FILTER.kind ? "&kind=" + FILTER.kind : "") +
+    (FILTER.q ? "&q=" + encodeURIComponent(FILTER.q) : "");
+  fetch("/api/list?" + qs).then(function (r) { return r.json(); }).then(function (d) {
+    ENTRIES = d.entries || [];
+    render();
+    if (done) done();
+  }).catch(function () {});
+}
+function render() {
+  var box = document.getElementById("list");
+  document.getElementById("emptybox").classList.toggle("hidden", ENTRIES.length > 0);
+  var html = "", lastDay = "";
+  ENTRIES.forEach(function (e) {
+    var day = dayLabel(e.ts);
+    if (day !== lastDay) { html += '<div class="day">' + day + "</div>"; lastDay = day; }
+    html += entryHtml(e);
+  });
+  box.innerHTML = html;
+  Array.prototype.forEach.call(box.querySelectorAll("[data-copy]"), function (b) {
+    b.onclick = function () { copyEntry(parseInt(b.getAttribute("data-copy"), 10)); };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-pin]"), function (b) {
+    b.onclick = function () {
+      post("/api/pin", { id: parseInt(b.getAttribute("data-pin"), 10),
+        pinned: b.getAttribute("data-now") !== "1" }).then(load);
+    };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-del]"), function (b) {
+    b.onclick = function () {
+      post("/api/delete", { id: parseInt(b.getAttribute("data-del"), 10) }).then(load);
+    };
+  });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-view]"), function (b) {
+    b.onclick = function () { viewEntry(parseInt(b.getAttribute("data-view"), 10)); };
+  });
+}
+function entryHtml(e) {
+  var icon = KINDICON[e.kind] || "❓";
+  var mid;
+  if (e.kind === "image") {
+    mid = '<img class="ethumb" loading="lazy" src="/api/image/' + e.id +
+      '" data-view="' + e.id + '" alt="图片">';
+  } else {
+    mid = '<div class="ebody">' + esc(e.preview) + "</div>";
+  }
+  var meta = '<span class="' + (e.pinned ? "pin-badge" : "") + '">' +
+    (e.pinned ? "📌 " : "") + esc(KINDNAME[e.kind] || "未知") + "</span>" +
+    "<span>" + relTime(e.ts) + "</span><span>" + (e.size >= 1024
+      ? (e.size / 1024).toFixed(1) + " KB" : e.size + " B") + "</span>";
+  return '<div class="entry' + (e.pinned ? " pinned" : "") + '" id="entry-' + e.id + '">' +
+    '<span class="kicon">' + icon + '</span><div class="emid">' + mid +
+    '<div class="emeta">' + meta + "</div></div>" +
+    '<div class="eacts">' +
+    '<button class="btn primary" data-copy="' + e.id + '">回贴</button>' +
+    '<button class="btn" data-pin="' + e.id + '" data-now="' + (e.pinned ? 1 : 0) + '">' +
+    (e.pinned ? "取 pin" : "置顶") + "</button>" +
+    '<button class="btn" data-del="' + e.id + '">删</button>' +
+    "</div></div>";
+}
+function copyEntry(id) {
+  post("/api/copy", { id: id }).then(function (d) {
+    toast(d.ok ? "已回贴到剪贴板（" + d.what + "）" : "回贴失败：" + (d.error || ""));
+  }).catch(function () { toast("请求失败"); });
+}
+function viewEntry(id) {
+  var e = ENTRIES.find(function (x) { return x.id === id; });
+  if (!e) return;
+  var mb = document.getElementById("mbody");
+  if (e.kind === "image") {
+    mb.innerHTML = '<img src="/api/image/' + e.id + '" alt="图片">';
+    document.getElementById("mtitle").textContent = "图片 · " + (e.size / 1024).toFixed(1) + " KB";
+    document.getElementById("modal").classList.remove("hidden");
+    return;
+  }
+  // 列表里的 body 是截断版（防大文本撑爆响应），全文走 /api/entry/<id>
+  document.getElementById("mtitle").textContent = KINDNAME[e.kind] + " · 完整内容";
+  mb.textContent = "加载中…";
+  document.getElementById("modal").classList.remove("hidden");
+  fetch("/api/entry/" + id).then(function (r) { return r.json(); }).then(function (full) {
+    mb.textContent = full.body != null ? full.body : JSON.stringify(full, null, 2);
+  }).catch(function () {
+    mb.textContent = e.body + "\n…（全文加载失败，显示的是列表截断版）";
+  });
+}
+function closeModal() { document.getElementById("modal").classList.add("hidden"); }
+
+document.getElementById("modal").addEventListener("click", function (e) {
+  if (e.target === this) closeModal();
+});
+Array.prototype.forEach.call(document.querySelectorAll(".kchip"), function (b) {
+  b.onclick = function () {
+    FILTER.kind = b.getAttribute("data-k");
+    Array.prototype.forEach.call(document.querySelectorAll(".kchip"), function (x) {
+      x.classList.toggle("active", x === b);
+    });
+    load();
+  };
+});
+var qtimer = null, qi = document.getElementById("q");
+qi.addEventListener("input", function () {
+  clearTimeout(qtimer);
+  qtimer = setTimeout(function () { FILTER.q = qi.value.trim(); load(); }, 250);
+});
+qi.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { clearTimeout(qtimer); FILTER.q = qi.value.trim(); load(); }
+});
+document.getElementById("pausebtn").onclick = function () {
+  var willPause = this.textContent.indexOf("暂停") >= 0;
+  post("/api/pause", { paused: willPause }).then(function (d) {
+    toast(d.paused ? "采集已暂停" : "采集已恢复");
+    refreshStats();
+  });
+};
+/* 页内确认框：原生 confirm() 在嵌入浏览器里被静默吞掉（返回 false 不弹窗） */
+function pageConfirm(msg) {
+  return new Promise(function (resolve) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;";
+    wrap.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:430px;width:100%;box-shadow:var(--shadow-lg);padding:18px 20px;font-size:14px;color:var(--text)">' +
+      '<div style="white-space:pre-wrap;line-height:1.6">' + esc(msg) + "</div>" +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">' +
+      '<button class="btn" data-r="0">取消</button>' +
+      '<button class="btn danger" data-r="1">确定</button></div></div>';
+    document.body.appendChild(wrap);
+    var closed = false;
+    function done(yes) {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(yes);
+    }
+    function onKey(e) { if (e.key === "Escape") done(false); }
+    Array.prototype.forEach.call(wrap.querySelectorAll("[data-r]"), function (b) {
+      b.onclick = function () { done(b.getAttribute("data-r") === "1"); };
+    });
+    wrap.addEventListener("click", function (e) { if (e.target === wrap) done(false); });
+    document.addEventListener("keydown", onKey);
+  });
+}
+document.getElementById("clearbtn").onclick = function () {
+  pageConfirm("清空全部未置顶条目？（置顶的保留）").then(function (yes) {
+    if (!yes) return;
+    post("/api/clear", { keep_pinned: true }).then(function (d) {
+      toast("已清空 " + d.deleted + " 条"); load(); refreshStats();
+    });
+  });
+};
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") closeModal();
+});
+
+refreshStats();
+
+// 深链入口（ToolHub 联邦搜索直达）：?q=<过滤词>&focus=<条目 id>
+// 渲染完成后把条目卡滚进视野并高亮；focus 的条目不在结果里时明确提示（可能已被保留上限清理）。
+var deepFocus = null;
+try {
+  var sp = new URLSearchParams(location.search);
+  var dq = (sp.get("q") || "").trim();
+  if (dq) { FILTER.q = dq; qi.value = dq; }
+  var fid = parseInt(sp.get("focus") || "", 10);
+  if (fid) deepFocus = fid;
+} catch (e) {}
+
+load(function () {
+  if (!deepFocus) return;
+  var el = document.getElementById("entry-" + deepFocus);
+  if (!el) { toast("条目 #" + deepFocus + " 不在当前结果里（可能已被清理）"); return; }
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.add("flash");
+});
+setInterval(refreshStats, 5000);
+</script>
+</body>
+</html>

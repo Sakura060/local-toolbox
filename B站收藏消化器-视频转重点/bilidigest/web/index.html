@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>收藏消化器 — 视频转文字重点</title>
+<style>
+  :root{--bg:#0f1317;--panel:#171d24;--line:#253039;--text:#e2e9ee;--dim:#8798a5;
+    --accent:#ff7fa2;--accent2:#7ee0a3;--blue:#4da3ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei UI",system-ui,sans-serif}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:12px 16px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .logo{font-size:19px;font-weight:700}
+  .logo b{color:var(--accent)}
+  #input{flex:1;min-width:280px;padding:10px 14px;font-size:14px;border-radius:10px;
+    border:1px solid var(--line);background:var(--bg);color:var(--text);outline:none}
+  #input:focus{border-color:var(--accent)}
+  button{padding:9px 14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--bg);color:var(--text);cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  main{max-width:960px;margin:0 auto;padding:16px}
+  .job{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:10px;cursor:pointer}
+  .job:hover{border-color:var(--accent)}
+  .jt{font-weight:600;font-size:14px;word-break:break-all}
+  .js{font-size:12px;color:var(--dim);margin-top:4px}
+  .st{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;margin-right:8px}
+  .st-done{background:#15301f;color:var(--accent2)}
+  .st-failed{background:#331b1b;color:#ff8f8f}
+  .st-running{background:#12283f;color:var(--blue)}
+  .st-pending{background:#2b2b18;color:#d8d87a}
+  .bar{height:3px;background:var(--line);border-radius:2px;margin-top:8px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:var(--blue);width:0;transition:width .4s}
+  #detail{display:none}
+  #back{margin-bottom:12px}
+  #player{width:100%;max-height:420px;border-radius:12px;background:#000}
+  .sec{margin-top:16px}
+  .sec h3{font-size:14px;margin:0 0 8px;color:var(--accent)}
+  .chip{display:inline-block;background:var(--panel);border:1px solid var(--line);
+    border-radius:99px;padding:4px 12px;margin:0 6px 6px 0;font-size:13px}
+  .chip small{color:var(--dim)}
+  .key{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:8px 12px;margin-bottom:8px;cursor:pointer;font-size:13px;line-height:1.6}
+  .key:hover{border-color:var(--accent)}
+  .key .t{color:var(--dim);font-size:11px;margin-right:8px}
+  .chap{display:flex;gap:10px;padding:6px 4px;border-bottom:1px dashed var(--line);
+    cursor:pointer;font-size:13px;align-items:baseline}
+  .chap:hover{color:var(--accent)}
+  .chap .t{color:var(--dim);font-size:11px;min-width:96px}
+  #transcript{display:none;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:12px;max-height:400px;overflow:auto;font-size:12px;
+    line-height:1.9;white-space:pre-wrap;word-break:break-all;color:var(--dim)}
+  #empty{color:var(--dim);text-align:center;padding:50px 0;line-height:2}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:#2a1215;color:#ffb4ae;border:1px solid #5c2a2c;padding:8px 16px;
+    border-radius:10px;font-size:13px;display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div class="logo">收藏消化<b>器</b></div>
+    <input id="input" type="text" placeholder="粘贴 B站视频链接，或输入本地音视频文件路径 — 全程本地转写，零 API">
+    <button id="add">消化它</button>
+    <button id="clean" title="转写完成的音频已自动删除；这个按钮清理更早版本留下的缓存音频" style="font-size:12px;padding:8px 10px">🧹 清理缓存</button>
+  </div>
+</header>
+<main>
+  <div id="list-view">
+    <p id="hint" style="color:var(--dim);font-size:12px;line-height:1.8">
+      输出三件套：<b style="color:var(--accent2)">章节</b>（跳着看）+ <b style="color:var(--accent2)">关键词</b>（讲了啥）+
+      <b style="color:var(--accent2)">重点句</b>（原话摘录，点击跳转）。全部来自原文，不编一个字。</p>
+    <div id="jobs"></div>
+    <div id="empty" style="display:none">还没有任务。粘贴一个 B站链接或本地视频路径试试。</div>
+  </div>
+
+  <div id="detail">
+    <button id="back">← 返回列表</button>
+    <video id="player" controls></video>
+    <div class="sec"><h3>关键词</h3><div id="kw"></div></div>
+    <div class="sec"><h3>章节（点击跳转）</h3><div id="chapters"></div></div>
+    <div class="sec"><h3>重点句（点击跳转）</h3><div id="keys"></div></div>
+    <div class="sec"><h3>文字稿 <button id="toggle-tr" style="padding:3px 10px;font-size:11px">展开/收起</button></h3>
+      <div id="transcript"></div></div>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+let pollTimer = null, curJob = null;
+
+function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
+function fmtT(sec){sec=Math.max(0,Math.floor(sec||0));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;const p=x=>String(x).padStart(2,"0");return h?`${h}:${p(m)}:${p(s)}`:`${m}:${p(s)}`;}
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",3000);}
+
+async function api(path, opts){ const r = await fetch(path, opts); return r.json(); }
+
+async function refreshJobs(){
+  const data = await api("/api/jobs");
+  const jobs = data.jobs || [];
+  $("#empty").style.display = jobs.length ? "none" : "block";
+  const box = $("#jobs"); box.innerHTML = "";
+  for(const j of jobs){
+    const d = document.createElement("div");
+    d.className = "job";
+    const stMap = {done:"已完成", failed:"失败", running:"处理中", pending:"排队中"};
+    d.innerHTML = `<div class="jt"><span class="st st-${j.status}">${stMap[j.status]||j.status}</span>${esc(j.title||j.src)}</div>
+      <div class="js">${esc(j.kind==="url"?"B站":"本地")} · ${esc(j.stage||"")}${j.err?" · "+esc(j.err):""}</div>
+      ${j.status==="running"?`<div class="bar"><i style="width:${Math.round((j.progress||0)*100)}%"></i></div>`:""}`;
+    d.onclick = () => openJob(j.id);
+    box.appendChild(d);
+  }
+  const active = jobs.some(j => j.status==="running"||j.status==="pending");
+  if(active && !pollTimer) pollTimer = setInterval(refreshJobs, 2000);
+  if(!active && pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+}
+
+function seek(t){ const p = $("#player"); if(p && p.duration){ p.currentTime = t; p.play(); } }
+
+async function openJob(id){
+  const j = await api(`/api/job/${id}`);
+  if(j.error){ toast(j.error); return; }
+  curJob = j;
+  $("#list-view").style.display = "none";
+  $("#detail").style.display = "block";
+  const p = $("#player");
+  if(j.media_path){ p.src = `/media/${j.id}`; p.style.display="block"; }
+  else { p.removeAttribute("src"); p.style.display="none"; }
+
+  const dg = j.digest || {};
+  $("#kw").innerHTML = (dg.keywords||[]).map(k =>
+    `<span class="chip">${esc(k.word)} <small>×${k.count}</small></span>`).join("") || "<span style='color:var(--dim)'>—</span>";
+  $("#chapters").innerHTML = "";
+  for(const c of (dg.chapters||[])){
+    const d = document.createElement("div");
+    d.className = "chap";
+    d.innerHTML = `<span class="t">${fmtT(c.t0)} - ${fmtT(c.t1)}</span><span>${esc(c.title)}</span>`;
+    d.onclick = () => seek(c.t0);
+    $("#chapters").appendChild(d);
+  }
+  $("#keys").innerHTML = "";
+  for(const k of (dg.key_sentences||[])){
+    const d = document.createElement("div");
+    d.className = "key";
+    d.innerHTML = `<span class="t">▸ ${fmtT(k.t0)}</span>${esc(k.text)}`;
+    d.onclick = () => seek(k.t0);
+    $("#keys").appendChild(d);
+  }
+  const tr = (j.transcripts||[]).map(s => `[${fmtT(s.t0)}] ${s.text}`).join("\n");
+  $("#transcript").textContent = tr || "（无文字内容）";
+  window.scrollTo(0,0);
+}
+
+$("#back").onclick = () => { $("#detail").style.display="none"; $("#list-view").style.display="block";
+  $("#player").pause(); refreshJobs(); };
+$("#toggle-tr").onclick = () => { const t=$("#transcript"); t.style.display = t.style.display==="block"?"none":"block"; };
+
+$("#add").onclick = async () => {
+  const inp = $("#input").value.trim();
+  if(!inp){ toast("先粘贴链接或文件路径"); return; }
+  const r = await api("/api/add",{method:"POST",body:JSON.stringify({input:inp})});
+  if(r.ok){ $("#input").value=""; toast("已加入队列"); refreshJobs(); }
+  else toast(r.error || "失败");
+};
+$("#input").addEventListener("keydown", e => { if(e.key==="Enter") $("#add").click(); });
+
+// 清理缓存音频（URL 任务的转写完成音频现在会自动删；此按钮清理历史遗留）
+$("#clean").onclick = async () => {
+  const r = await api("/api/clean-audio",{method:"POST",body:"{}"});
+  if(r.ok){ toast(r.deleted ? `已清理 ${r.deleted} 个文件，释放 ${r.freed_mb} MB`
+                            : "没有需要清理的缓存音频"); }
+  else toast(r.error || "清理失败");
+};
+
+refreshJobs();
+</script>
+</body>
+</html>

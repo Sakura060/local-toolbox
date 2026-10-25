@@ -1,0 +1,2771 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>">
+<title>ToolHub 工具箱</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f9; --bg2: #ecf0f5; --card: #ffffff; --text: #1f2937; --muted: #6b7280; --faint: #9aa3af;
+    --border: #e5e7eb; --line: #eef0f3; --accent: #2563eb; --accent-soft: #eff6ff; --accent-text: #1d4ed8;
+    --ok: #16a34a; --warn: #b45309; --warn-bg: #fffbeb; --warn-border: #fde68a;
+    --bad: #dc2626; --bad-bg: #fef2f2; --bad-border: #fecaca;
+    --mark: #fef08a; --code-bg: #f3f4f6;
+    --shadow-sm: 0 1px 3px rgba(17,24,39,.07);
+    --shadow-lg: 0 12px 32px rgba(17,24,39,.16);
+    --radius: 14px; --radius-sm: 9px; --space: 16px;
+    --sidebar-w: 236px; --topbar-h: 58px;
+    --font: 15px/1.6 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  html.dark {
+    color-scheme: dark;
+    --bg: #0f172a; --bg2: #0b1222; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --faint: #64748b;
+    --border: #334155; --line: #26324a; --accent: #60a5fa; --accent-soft: #1e3a8a; --accent-text: #93c5fd;
+    --ok: #4ade80; --warn: #fbbf24; --warn-bg: #3b2708; --warn-border: #92610c;
+    --bad: #f87171; --bad-bg: #3b0d0d; --bad-border: #7f1d1d;
+    --mark: #854d0e; --code-bg: #0b1222;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.4);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,.55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font: var(--font);
+    -webkit-font-smoothing: antialiased;
+    display: grid; grid-template-columns: var(--sidebar-w) 1fr;
+    min-height: 100vh;
+  }
+  button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hidden { display: none !important; }
+
+  /* ---------- 侧边栏 ---------- */
+  #side {
+    background: var(--bg2); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 14px 10px 10px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; padding: 4px 10px 12px; }
+  .brand small { display: block; font-size: 11.5px; font-weight: 400; color: var(--muted); letter-spacing: .3px; }
+  .navsec { color: var(--faint); font-size: 11.5px; padding: 12px 12px 4px; letter-spacing: .5px; }
+  .nav {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 7px 12px; border: 0; border-radius: 10px; background: none;
+    color: var(--text); cursor: pointer; text-align: left; font-size: 14px;
+    transition: background .12s;
+  }
+  .nav:hover { background: var(--line); }
+  .nav.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
+  .nav .cnt { margin-left: auto; color: var(--faint); font-size: 12px; }
+  .nav .em { width: 20px; text-align: center; flex: none; }
+  #sidefoot { margin-top: auto; padding: 10px 12px 2px; color: var(--faint); font-size: 11.5px; }
+  #sidefoot b { color: var(--ok); }
+
+  /* ---------- 主区 ---------- */
+  #main { min-width: 0; display: flex; flex-direction: column; }
+  #topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 22px; background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--border);
+    min-height: var(--topbar-h);
+  }
+  #burger { display: none; }
+  .searchwrap { position: relative; flex: 1 1 260px; max-width: 620px; }
+  #q {
+    width: 100%; padding: 9px 38px 9px 36px; font-size: 14.5px;
+    border: 1px solid var(--border); border-radius: 12px; outline: none;
+    background: var(--card); color: var(--text); box-shadow: var(--shadow-sm);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  #q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.14); }
+  .sicon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: .55; pointer-events: none; font-size: 14px; }
+  #qclear {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--border); color: var(--muted); font-size: 13px; line-height: 1;
+  }
+  .tbtn {
+    padding: 6px 13px; border-radius: 10px; font-size: 13px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    transition: transform .1s;
+  }
+  .tbtn:active { transform: scale(.95); }
+  #netstat { color: var(--muted); font-size: 12.5px; margin-left: auto; white-space: nowrap; }
+  #netstat b { color: var(--ok); }
+
+  #view { padding: 18px 22px 46px; max-width: 1180px; width: 100%; margin: 0 auto; }
+
+  /* ---------- 分类与卡片 ---------- */
+  .cathead { display: flex; align-items: baseline; gap: 10px; margin: 20px 2px 10px; }
+  .cathead:first-child { margin-top: 4px; }
+  .cathead h2 { margin: 0; font-size: 16.5px; }
+  .cathead .n { color: var(--faint); font-size: 12.5px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(292px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 7px;
+    box-shadow: var(--shadow-sm); transition: transform .15s ease, box-shadow .15s ease;
+    position: relative;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .card.dragging { opacity: .45; }
+  .card .row { display: flex; align-items: center; gap: 9px; }
+  .ticon { font-size: 21px; line-height: 1; flex: none; }
+  .card h3 { margin: 0; font-size: 15px; flex: 1; min-width: 0; }
+  .card h3 a { color: inherit; text-decoration: none; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.on { background: var(--ok); animation: pulse 2.2s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(22,163,74,.35); }
+    70% { box-shadow: 0 0 0 7px rgba(22,163,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+  }
+  .ms { color: var(--faint); font-size: 11.5px; flex: none; }
+  .ticon-img { width: 22px; height: 22px; border-radius: 5px; flex: none; object-fit: contain; }
+  .dot.bad { background: var(--bad); }
+  .dot.warn2 { background: var(--warn); }
+  .dhead .ticon-img { width: 44px; height: 44px; border-radius: 10px; }
+  .plugrow { display: flex; align-items: center; gap: 11px; padding: 10px 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .plugrow:last-child { border-bottom: 0; }
+  .plugrow .pico { width: 30px; height: 30px; border-radius: 7px; object-fit: contain; flex: none; }
+  .plugrow .pmain { flex: 1; min-width: 180px; }
+  .plugrow .pname { font-weight: 600; font-size: 14px; }
+  .plugrow .pmeta { color: var(--muted); font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1px; }
+  .plugrow .pacts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .statetag { font-size: 11.5px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--border); }
+  .statetag.ok { color: var(--ok); border-color: var(--ok); }
+  .statetag.invalid { color: var(--bad); border-color: var(--bad); background: var(--bad-bg); }
+  .statetag.disabled { color: var(--faint); }
+  .statetag.draft { color: var(--warn); border-color: var(--warn-border); background: var(--warn-bg); }
+  /* 向导 */
+  .steps { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .steps .st { font-size: 12px; padding: 3px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--faint); }
+  .steps .st.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .steps .st.done { color: var(--accent-text); border-color: var(--accent); }
+  .wcard { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow-sm); }
+  .wcard h3 { margin: 0 0 6px; font-size: 17px; }
+  .wcard .hint2 { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 34px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+  .wrow { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; flex-wrap: wrap; }
+  .wrow label { min-width: 96px; color: var(--muted); font-size: 13px; padding-top: 8px; flex: none; }
+  .wrow input[type=text], .wrow textarea, .wrow select {
+    flex: 1; min-width: 220px; padding: 8px 10px; font-size: 13.5px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); outline: none;
+    font-family: inherit;
+  }
+  .wrow textarea { min-height: 56px; font: 12.5px/1.5 Consolas, monospace; }
+  .wrow input:focus, .wrow textarea:focus { border-color: var(--accent); }
+  .preview-card { background: var(--code-bg); border: 1px solid var(--border); border-radius: 9px; padding: 12px 14px; font-size: 13px; margin: 10px 0; }
+  .preview-card .kv2 { margin: 3px 0; word-break: break-all; }
+  .preview-card .kv2 b { color: var(--muted); margin-right: 6px; font-weight: 600; }
+  .wfoot { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
+  .wfoot .spacer { flex: 1; }
+  .checkline { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; margin: 10px 0; }
+  .checkline input { margin-top: 3px; }
+
+  .card p { margin: 0; color: var(--muted); font-size: 12.8px; flex: 1; }
+  .tagrow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tag {
+    font-size: 11.5px; padding: 1px 9px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+  .tag.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
+  .tag.exp  { color: var(--accent-text); background: var(--accent-soft); border-color: var(--accent); }
+  .star {
+    position: absolute; top: 9px; right: 11px; border: 0; background: none;
+    font-size: 15px; cursor: pointer; color: var(--faint); opacity: .55; padding: 2px;
+  }
+  .star:hover { opacity: 1; }
+  .star.on { opacity: 1; color: #f59e0b; }
+  .card .acts { display: flex; gap: 7px; align-items: center; margin-top: 2px; }
+  .btn {
+    display: inline-block; padding: 4.5px 13px; border-radius: 8px; font-size: 12.8px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    cursor: pointer; text-decoration: none; transition: transform .1s, opacity .12s;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--bad); border-color: var(--bad-border); }
+  .btn.open { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .empty { color: var(--muted); text-align: center; padding: 26px; font-size: 13.5px;
+    border: 1px dashed var(--border); border-radius: var(--radius); }
+
+  /* ---------- 搜索结果 ---------- */
+  #results { margin-top: 4px; }
+  .rgroup { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+  .rgroup .ghead { display: flex; align-items: center; gap: 10px; padding: 9px 15px; background: var(--line); border-bottom: 1px solid var(--border); font-size: 13px; }
+  .ghead .cnt { color: var(--muted); }
+  .ghead .err { color: var(--warn); }
+  .ritem { display: flex; gap: 12px; padding: 9px 15px; border-bottom: 1px solid var(--line); }
+  .ritem:last-child { border-bottom: 0; }
+  .rthumb { width: 84px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); background: var(--code-bg); flex: none; }
+  .rmain { min-width: 0; flex: 1; }
+  .rtitle { font-weight: 600; font-size: 13.8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rsnip { color: var(--muted); font-size: 12.8px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .rmeta { color: var(--faint); font-size: 11.8px; margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .ritem.link { cursor: pointer; }
+  .ritem.link:hover { background: var(--line); }
+  .qtools { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+  .skel { height: 14px; border-radius: 6px; margin: 11px 16px;
+    background: linear-gradient(90deg, var(--border) 25%, var(--line) 50%, var(--border) 75%);
+    background-size: 200% 100%; animation: shimmer 1.1s infinite linear; }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  mark { background: var(--mark); color: inherit; padding: 0 1px; border-radius: 2px; }
+
+  /* ---------- 详情页 ---------- */
+  .dhead { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+  .dhead .ticon { font-size: 38px; }
+  .dhead h2 { margin: 0; font-size: 21px; }
+  .dhead .sub { color: var(--muted); font-size: 13px; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .dhead .dacts { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .back { margin-bottom: 12px; }
+  .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  @media (max-width: 860px) { .dgrid { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-sm); }
+  .panel h4 { margin: 0 0 8px; font-size: 13.5px; color: var(--muted); font-weight: 600; letter-spacing: .4px; }
+  .kv { margin: 3px 0; font-size: 13.2px; }
+  .kv b { color: var(--muted); font-weight: 600; margin-right: 6px; }
+  .paramrow { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  .paramrow label { font-size: 13px; color: var(--muted); min-width: 72px; }
+  .paramrow input {
+    flex: 1; min-width: 180px; padding: 7px 10px; font-size: 13px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    color: var(--text); outline: none;
+  }
+  .paramrow input:focus { border-color: var(--accent); }
+  #logbox {
+    margin: 6px 0 0; background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 9px; padding: 10px 12px; font: 12px/1.55 Consolas, monospace;
+    white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto; color: var(--text);
+  }
+  #logbox:empty::after { content: "暂无日志 —— 从这里启动工具后，运行输出会实时出现在这块"; color: var(--faint); }
+  .check { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.2px; }
+  .check:last-child { border-bottom: 0; }
+  .check .sym { flex: none; width: 20px; text-align: center; }
+  .check .fix { color: var(--muted); font-size: 12.3px; margin-top: 1px; }
+  .check.fail .t { color: var(--bad); }
+  .check.warn .t { color: var(--warn); }
+  .envbanner {
+    display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap;
+    border: 1px solid var(--warn-border); background: var(--warn-bg); color: var(--warn);
+    border-radius: var(--radius); padding: 12px 16px; margin-bottom: 14px; font-size: 13.5px;
+  }
+  .envbanner .btn { margin-left: auto; }
+  /* 嵌入界面 */
+  #embedbar { display: flex; gap: 8px; align-items: center; padding: 8px 0; }
+  #embedframe { width: 100%; height: calc(100vh - 210px); min-height: 420px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+
+  /* ---------- 环境自检 / 设置 ---------- */
+  .verdict { font-size: 15px; font-weight: 700; margin: 4px 0 12px; }
+  .verdict.bad { color: var(--bad); } .verdict.warn { color: var(--warn); } .verdict.ok { color: var(--ok); }
+  .setrow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: 13.8px; }
+  .setrow:last-child { border-bottom: 0; }
+  .setrow .lab { min-width: 120px; color: var(--muted); font-size: 13px; }
+  select, textarea {
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font: inherit;
+  }
+  textarea { width: 100%; min-height: 110px; font: 12px/1.5 Consolas, monospace; }
+  .code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 12px; }
+
+  /* ---------- 命令面板 ---------- */
+  #pal { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 55; display: flex; justify-content: center; align-items: flex-start; padding: 9vh 20px 20px; }
+  .palbox { background: var(--card); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 660px; box-shadow: var(--shadow-lg); overflow: hidden; animation: pop .14s ease-out; display: flex; flex-direction: column; }
+  @keyframes pop { from { transform: scale(.96); opacity: .5; } }
+  #pinput { width: 100%; padding: 14px 16px; font-size: 15.5px; border: 0; outline: none; background: var(--card); color: var(--text); border-bottom: 1px solid var(--line); }
+  #plist { max-height: 56vh; overflow: auto; }
+  .pitem { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .pitem:last-child { border-bottom: 0; }
+  .pitem:hover { background: var(--line); }
+  .pitem.sel { background: var(--accent-soft); }
+  .picon { font-size: 16px; width: 22px; text-align: center; flex: none; }
+  .pitem .plabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .phint { color: var(--faint); font-size: 12px; flex: none; }
+  .psec { padding: 8px 16px 4px; color: var(--faint); font-size: 12px; border-bottom: 1px solid var(--line); }
+  .pempty { padding: 22px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  .pkbd { display: flex; gap: 14px; padding: 8px 16px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11.5px; }
+  .pkbd b { color: var(--muted); }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 10px);
+    background: #111827; color: #f9fafb; padding: 9px 18px; border-radius: 10px;
+    font-size: 13.5px; opacity: 0; transition: opacity .22s, transform .22s;
+    pointer-events: none; z-index: 60; box-shadow: var(--shadow-lg); max-width: 80vw;
+  }
+  #toast.show { opacity: .95; transform: translate(-50%, 0); }
+
+  /* ---------- 窄窗口 ---------- */
+  @media (max-width: 900px) {
+    body { grid-template-columns: 1fr; }
+    #side { position: fixed; z-index: 50; width: 250px; transform: translateX(-105%); transition: transform .2s ease; box-shadow: var(--shadow-lg); }
+    #side.open { transform: none; }
+    #burger { display: inline-block; }
+    #netstat { display: none; }
+    #view { padding: 14px 12px 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<nav id="side">
+  <div class="brand">🧰 ToolHub<small>本地工具箱 · 桌面版</small></div>
+  <div id="navlist"></div>
+  <div id="sidefoot">状态加载中…</div>
+</nav>
+<div id="main">
+  <header id="topbar">
+    <button id="burger" class="tbtn" title="菜单">☰</button>
+    <div class="searchwrap">
+      <span class="sicon">🔍</span>
+      <input id="q" type="search" placeholder="搜索工具、截图文字、笔记、文件身世、剪贴板…" autocomplete="off" aria-label="全局搜索">
+      <button id="qclear" class="hidden" title="清空">×</button>
+    </div>
+    <button id="palbtn" class="tbtn" title="命令面板（Ctrl+K）">⌘K 命令</button>
+    <button id="themebtn" class="tbtn" title="切换主题（自动→亮→暗）">🖥 自动</button>
+    <div id="netstat">…</div>
+  </header>
+  <div id="view"></div>
+</div>
+
+<div id="toast"></div>
+<div id="pal" class="hidden">
+  <div class="palbox">
+    <input id="pinput" placeholder="搜索或执行命令…（&gt; 只搜命令 · ↑↓ 选择 · 回车执行 · Esc 关闭）" autocomplete="off">
+    <div id="plist"></div>
+    <div class="pkbd"><span><b>↑↓</b> 选择</span><span><b>Enter</b> 执行</span><span><b>&gt;</b> 只搜命令</span><span><b>Esc</b> 关闭</span></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= 基础工具 ================= */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function fmtWhen(ts) {
+  if (!ts) return "";
+  var d = new Date(ts * 1000), p = function (n) { return (n < 10 ? "0" : "") + n; };
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function relTime(ts) {
+  if (!ts) return "";
+  var diff = Date.now() / 1000 - ts;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return Math.floor(diff / 60) + " 分钟前";
+  if (diff < 86400) return Math.floor(diff / 3600) + " 小时前";
+  var d = new Date(ts * 1000), p = function (n) { return (n < 10 ? "0" : "") + n; };
+  var md = (d.getMonth() + 1) + "-" + p(d.getDate());
+  if (d.getFullYear() !== new Date().getFullYear()) md = d.getFullYear() + "-" + md;
+  return md + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+var toastTimer = null;
+function toast(msg) {
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove("show"); }, 3200);
+}
+/* 页内确认框：不依赖原生 confirm()（pywebview/WebView2 下原生脚本对话框不可靠）。
+   返回 Promise<boolean>，Esc/点遮罩=取消。 */
+function uiConfirm(msg) {
+  return new Promise(function (resolve) {
+    var wrap = document.createElement("div");
+    wrap.id = "uiconfirm";
+    wrap.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;";
+    wrap.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:430px;width:100%;box-shadow:var(--shadow-lg);padding:18px 20px;font-size:14px;color:var(--text)">' +
+      '<div style="white-space:pre-wrap;line-height:1.6">' + esc(msg) + "</div>" +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">' +
+      '<button class="btn" data-r="0">取消</button>' +
+      '<button class="btn danger" data-r="1">确定</button></div></div>';
+    document.body.appendChild(wrap);
+    var closed = false;
+    function done(yes) {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(yes);
+    }
+    function onKey(e) { if (e.key === "Escape") done(false); }
+    Array.prototype.forEach.call(wrap.querySelectorAll("[data-r]"), function (b) {
+      b.onclick = function () { done(b.getAttribute("data-r") === "1"); };
+    });
+    wrap.addEventListener("click", function (e) { if (e.target === wrap) done(false); });
+    document.addEventListener("keydown", onKey);
+  });
+}
+function hi(text, q) {
+  var safe = esc(text);
+  if (!q) return safe;
+  var eq = esc(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return safe.replace(new RegExp(eq, "gi"), function (m) { return "<mark>" + m + "</mark>"; });
+}
+
+/* ================= 主题 ================= */
+var THEME_KEY = "toolhub-theme";
+function getTheme() {
+  try { return localStorage.getItem(THEME_KEY) || (SETTINGS && SETTINGS.theme) || "auto"; }
+  catch (e) { return "auto"; }
+}
+function applyTheme() {
+  var pref = getTheme();
+  var dark = pref === "dark" ||
+    (pref === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+  var b = document.getElementById("themebtn");
+  if (b) b.textContent = pref === "auto" ? "🖥 自动" : (pref === "dark" ? "🌙 暗色" : "☀️ 亮色");
+}
+function setTheme(pref) {
+  try { localStorage.setItem(THEME_KEY, pref); } catch (e) {}
+  postSettings({ theme: pref });
+  applyTheme();
+}
+function cycleTheme() {
+  var order = ["auto", "light", "dark"];
+  var next = order[(order.indexOf(getTheme()) + 1) % 3];
+  setTheme(next);
+  toast("主题：" + (next === "auto" ? "跟随系统" : next === "dark" ? "深色" : "浅色"));
+}
+
+/* ================= 状态 ================= */
+var TOOLS = [], STATUS = {}, SETTINGS = { favorites: [], order: [], first_run_done: false, theme: "auto" };
+var CATS = [], WARNINGS = [], APP = {};
+var SHELL = new URLSearchParams(location.search).has("shell");
+/* 页内输入框：原生 prompt() 在嵌入浏览器里会被静默吞掉（IAB 实测），
+   与 uiConfirm 同理自绘。返回 Promise<string|null>（null=取消）。 */
+function uiPrompt(msg, def) {
+  return new Promise(function (resolve) {
+    var wrap = document.createElement("div");
+    wrap.id = "uiprompt";
+    wrap.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;";
+    wrap.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:540px;width:100%;box-shadow:var(--shadow-lg);padding:18px 20px;font-size:14px;color:var(--text)">' +
+      '<div style="margin-bottom:10px;white-space:pre-wrap;line-height:1.6">' + esc(msg) + "</div>" +
+      '<input type="text" id="uiprompt-input" style="width:100%;padding:8px 10px;font-size:13.5px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)" value="' + esc(def || "") + '">' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">' +
+      '<button class="btn" data-r="0">取消</button>' +
+      '<button class="btn primary" data-r="1">确定</button></div></div>';
+    document.body.appendChild(wrap);
+    var inp = wrap.querySelector("#uiprompt-input");
+    inp.focus();
+    inp.select();
+    var closed = false;
+    function done(val) {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") done(null);
+      else if (e.key === "Enter") done(inp.value.trim() || null);
+    }
+    wrap.querySelector('[data-r="0"]').onclick = function () { done(null); };
+    wrap.querySelector('[data-r="1"]').onclick = function () { done(inp.value.trim() || null); };
+    wrap.addEventListener("click", function (e) { if (e.target === wrap) done(null); });
+    document.addEventListener("keydown", onKey);
+  });
+}
+function toolById(id) {
+  for (var i = 0; i < TOOLS.length; i++) if (TOOLS[i].id === id) return TOOLS[i];
+  return null;
+}
+function isOnline(id) { return !!(STATUS[id] && STATUS[id].online); }
+function ordered(list) {
+  var rank = {};
+  (SETTINGS.order || []).forEach(function (id, i) { rank[id] = i; });
+  return list.slice().sort(function (a, b) {
+    var ra = rank[a.id] === undefined ? 9999 : rank[a.id];
+    var rb = rank[b.id] === undefined ? 9999 : rank[b.id];
+    return ra === rb ? (a.id < b.id ? -1 : 1) : ra - rb;
+  });
+}
+function postSettings(patch, cb) {
+  fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { SETTINGS = d.settings || SETTINGS; if (cb) cb(SETTINGS); })
+    .catch(function () { toast("设置保存失败（服务没响应）"); });
+}
+
+/* ================= 侧边栏 ================= */
+var CAT_EMOJI = { "文件整理": "🗂", "记忆搜索": "🔎", "内容笔记": "✍️", "隐私安全": "🛡", "传输共享": "🌐" };
+function renderNav() {
+  var cur = location.hash || "#/";
+  var favN = (SETTINGS.favorites || []).filter(function (id) { return toolById(id); }).length;
+  function nav(hash, em, label, cnt, active) {
+    return '<button class="nav' + (active ? " active" : "") + '" data-nav="' + esc(hash) + '">' +
+      '<span class="em">' + em + "</span>" + esc(label) +
+      (cnt !== "" ? '<span class="cnt">' + cnt + "</span>" : "") + "</button>";
+  }
+  var html = nav("#/", "🏠", "全部工具", TOOLS.length, cur === "#/" || cur === "#");
+  html += nav("#/fav", "⭐", "收藏", favN || "", cur === "#/fav");
+  html += '<div class="navsec">分类</div>';
+  CATS.forEach(function (c) {
+    var n = TOOLS.filter(function (t) { return t.category === c; }).length;
+    html += nav("#/cat/" + encodeURIComponent(c), CAT_EMOJI[c] || "📁", c, n,
+      cur === "#/cat/" + encodeURIComponent(c));
+  });
+  html += '<div class="navsec">维护</div>';
+  html += nav("#/scenes", "🎬", "工作场景", "", cur === "#/scenes" || cur.indexOf("#/scene-edit") === 0);
+  html += nav("#/plugins", "🔌", "我的插件", "", cur === "#/plugins");
+  html += nav("#/import", "➕", "导入软件", "", cur.indexOf("#/import") === 0);
+  html += nav("#/env", "🩺", "环境自检", "", cur === "#/env");
+  html += nav("#/settings", "⚙️", "设置", "", cur === "#/settings");
+  var box = document.getElementById("navlist");
+  box.innerHTML = html;
+  Array.prototype.forEach.call(box.querySelectorAll("[data-nav]"), function (b) {
+    b.onclick = function () { location.hash = b.getAttribute("data-nav"); closeSide(); };
+  });
+}
+function closeSide() { document.getElementById("side").classList.remove("open"); }
+
+/* ================= 首页（分类卡片） ================= */
+function cardHtml(t) {
+  var st = STATUS[t.id] || {}, online = !!st.online;
+  var fav = (SETTINGS.favorites || []).indexOf(t.id) >= 0;
+  var isPlug = t.kind === "plugin";
+  var iconHtml = t.icon_url
+    ? '<img class="ticon-img" src="' + esc(t.icon_url) + '" onerror="this.outerHTML=\'<span class=ticon>' + esc(t.icon || "🧩") + "</span>'\">"
+    : '<span class="ticon">' + esc(t.icon || "🧰") + "</span>";
+  var ms = online && !isPlug ? '<span class="ms" data-ms="' + esc(t.id) + '">' + (st.ms || 0) + "ms</span>" : "";
+  var tags = '<span class="tag">' + esc(t.category) + "</span>";
+  if (isPlug) {
+    tags += '<span class="tag">插件</span>';
+    if (t.needs_admin) tags += '<span class="tag warn">🛡 管理员</span>';
+    var pstate = st.plugin_state || "ok";
+    if (pstate === "invalid") tags += '<span class="tag warn">已失效 · 可重新定位</span>';
+  }
+  if (t.status === "experimental") tags += '<span class="tag exp">实验性</span>';
+  if (t.status === "needs-setup") tags += '<span class="tag warn">需配置</span>';
+  if (t.note && !isPlug) tags += '<span class="tag warn">' + esc(t.note) + "</span>";
+  var dotCls = "dot" + (online ? " on" : (st.plugin_state === "invalid" ? " bad" : ""));
+  var open = !isPlug && online
+    ? '<button class="btn open" data-embed="' + esc(t.id) + '">打开</button>'
+    : "";
+  var launchBtn = "";
+  if (isPlug) {
+    launchBtn = (st.plugin_state === "invalid")
+      ? '<button class="btn primary" data-relocate="' + esc(t.id) + '">重新定位</button>'
+      : '<button class="btn primary" data-pluglaunch="' + esc(t.id) + '">启动</button>';
+  } else {
+    launchBtn = online ? "" : '<button class="btn primary" data-launch="' + esc(t.id) + '">启动</button>';
+  }
+  var stop = online ? '<button class="btn danger" data-stop="' + esc(t.id) + '">停止</button>' : "";
+  return '<div class="card" draggable="true" data-id="' + esc(t.id) + '">' +
+    '<button class="star' + (fav ? " on" : "") + '" data-star="' + esc(t.id) + '" title="收藏/取消收藏">' + (fav ? "★" : "☆") + "</button>" +
+    '<div class="row">' + iconHtml +
+    '<h3><a href="#/tool/' + esc(t.id) + '">' + esc(t.name) + "</a></h3>" +
+    '<span class="' + dotCls + '"></span>' + ms + "</div>" +
+    "<p>" + esc(t.desc) + "</p>" +
+    '<div class="tagrow">' + tags + "</div>" +
+    '<div class="acts"><button class="btn" data-detail="' + esc(t.id) + '">详情</button>' + open + launchBtn + stop + "</div>" +
+    "</div>";
+}
+function sectionHtml(title, list) {
+  if (!list.length) return "";
+  return '<div class="cathead"><h2>' + esc(title) + '</h2><span class="n">' + list.length + " 个</span></div>" +
+    '<div class="grid" data-grid="' + esc(title) + '">' + list.map(cardHtml).join("") + "</div>";
+}
+function renderHome() {
+  var v = document.getElementById("view");
+  var cur = decodeURIComponent((location.hash.match(/^#\/cat\/(.+)$/) || [])[1] || "");
+  var hash = location.hash || "#/";
+  var list = TOOLS;
+  var title = null;
+  if (hash === "#/fav") {
+    list = ordered((SETTINGS.favorites || []).map(toolById).filter(Boolean));
+    title = "⭐ 收藏";
+  } else if (cur) {
+    list = TOOLS.filter(function (t) { return t.category === cur; });
+    title = (CAT_EMOJI[cur] || "📁") + " " + cur;
+  } else {
+    list = ordered(TOOLS);
+  }
+  var html = "";
+  if (!list.length) {
+    html = '<div class="empty">' + (hash === "#/fav"
+      ? "还没有收藏 —— 点工具卡右上角的 ☆ 收藏常用的工具，它们会集中出现在这里"
+      : "这个分类下还没有工具") + "</div>";
+  } else if (title) {
+    html = sectionHtml(title, list);
+  } else {
+    var groups = {};
+    CATS.forEach(function (c) { groups[c] = []; });
+    list.forEach(function (t) { (groups[t.category] = groups[t.category] || []).push(t); });
+    Object.keys(groups).forEach(function (c) { html += sectionHtml(c, groups[c]); });
+    var extra = list.filter(function (t) { return CATS.indexOf(t.category) < 0; });
+    if (extra.length) html += sectionHtml("其他", extra);
+  }
+  if (WARNINGS.length) {
+    html = '<div class="envbanner">⚠ 注册表提示：' + WARNINGS.map(function (w) { return esc(w); }).join("；") + "</div>" + html;
+  }
+  if (APP.loaded && !SETTINGS.first_run_done) {
+    html = '<div class="envbanner">👋 第一次用？建议先跑一遍 <b>环境自检</b>，确认这台电脑上哪些工具立即可用、哪些需要一次性配置。' +
+      '<button class="btn" id="envfirst">去自检</button></div>' + html;
+  }
+  v.innerHTML = html;
+  bindCards(v);
+  enableDrag(v);
+}
+function bindCards(scope) {
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-launch]"), function (b) {
+    b.onclick = function () { launch(b.getAttribute("data-launch")); };
+  });
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-pluglaunch]"), function (b) {
+    b.onclick = function () { plugLaunch(b.getAttribute("data-pluglaunch")); };
+  });
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-relocate]"), function (b) {
+    b.onclick = function () { relocate(b.getAttribute("data-relocate")); };
+  });
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-stop]"), function (b) {
+    b.onclick = function () { stopTool(b.getAttribute("data-stop")); };
+  });
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-detail]"), function (b) {
+    b.onclick = function () { location.hash = "#/tool/" + b.getAttribute("data-detail"); };
+  });
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-star]"), function (b) {
+    b.onclick = function () { toggleFav(b.getAttribute("data-star")); };
+  });
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-embed]"), function (b) {
+    b.onclick = function () { openEmbed(b.getAttribute("data-embed")); };
+  });
+}
+/* 插件元信息缓存（needs_inputs 来自参数模板声明，启动表单渲染用） */
+var PLUG_META = {};
+function ensurePlugMeta(cb) {
+  if (PLUG_META._loaded) { cb(); return; }
+  fetch("/api/plugins").then(function (r) { return r.json(); }).then(function (d) {
+    (d.plugins || []).forEach(function (p) { PLUG_META[p.id] = p; });
+    PLUG_META._loaded = true;
+    cb();
+  }).catch(function () { cb(); });
+}
+/* 页内输入表单：插件带参数模板（{file}/{folder}/{text}/{arg:名}）启动时弹出。
+   与 uiPrompt 同理自绘（嵌入浏览器原生对话框不可靠）。返回 Promise<inputs|null>。 */
+function uiInputsForm(req, title) {
+  return new Promise(function (resolve) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:6vh 24px 24px;overflow:auto;";
+    var rows = "";
+    function row(label, inner, browse) {
+      return '<div class="paramrow"><label>' + esc(label) + "</label>" + inner +
+        (browse ? '<button class="btn" data-browse="' + browse + '">📁 浏览…</button>' : "") + "</div>";
+    }
+    if (req.file) rows += row("文件", '<input data-in="file" placeholder="要传给 {file} 的文件完整路径">', "file");
+    if (req.folder) rows += row("文件夹", '<input data-in="folder" placeholder="要传给 {folder} 的文件夹完整路径">', "folder");
+    if (req.text) rows += row("文本", '<input data-in="text" placeholder="要传给 {text} 的内容">');
+    (req.args || []).forEach(function (n) {
+      rows += row(n, '<input data-arg="' + esc(n) + '" placeholder="{arg:' + esc(n) + '} 的值">');
+    });
+    wrap.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:600px;width:100%;box-shadow:var(--shadow-lg);padding:18px 20px;font-size:14px;color:var(--text)">' +
+      '<div style="font-weight:600;font-size:15px;margin-bottom:4px">' + esc(title || "给它要用的输入") + "</div>" +
+      '<div class="ms" style="margin-bottom:12px">这个插件的参数模板声明了以下输入——填好才会启动。</div>' + rows +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">' +
+      '<button class="btn" data-r="0">取消</button>' +
+      '<button class="btn primary" data-r="1">▶ 启动</button></div></div>';
+    document.body.appendChild(wrap);
+    var first = wrap.querySelector("input");
+    if (first) first.focus();
+    var closed = false;
+    function done(val) {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    }
+    function collect() {
+      var inputs = {};
+      Array.prototype.forEach.call(wrap.querySelectorAll("[data-in]"), function (el) {
+        var v = el.value.trim();
+        if (v) inputs[el.getAttribute("data-in")] = v;
+      });
+      var args = {};
+      Array.prototype.forEach.call(wrap.querySelectorAll("[data-arg]"), function (el) {
+        args[el.getAttribute("data-arg")] = el.value.trim();
+      });
+      if (Object.keys(args).length) inputs.args = args;
+      return inputs;
+    }
+    Array.prototype.forEach.call(wrap.querySelectorAll("[data-browse]"), function (b) {
+      b.onclick = function () {
+        var bridge = window.pywebview && window.pywebview.api;
+        var kind = b.getAttribute("data-browse");
+        if (bridge && typeof bridge.pick_file === "function") {
+          (kind === "folder" ? bridge.pick_folder() : bridge.pick_file())
+            .then(function (p) { if (p) wrap.querySelector('[data-in="' + kind + '"]').value = p; })
+            .catch(function () {});
+        } else {
+          toast("当前窗口模式没有文件选择框——粘贴路径（资源管理器里 Shift+右键 → 复制文件地址）");
+        }
+      };
+    });
+    wrap.querySelector('[data-r="0"]').onclick = function () { done(null); };
+    wrap.querySelector('[data-r="1"]').onclick = function () {
+      var missing = null;
+      Array.prototype.forEach.call(wrap.querySelectorAll("[data-arg]"), function (el) {
+        if (!missing && !el.value.trim()) missing = el.getAttribute("data-arg");
+      });
+      if (missing) { toast("参数「" + missing + "」还没填"); return; }
+      done(collect());
+    };
+    wrap.addEventListener("click", function (e) { if (e.target === wrap) done(null); });
+    function onKey(e) {
+      if (e.key === "Escape") done(null);
+      else if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
+        var m = null;
+        Array.prototype.forEach.call(wrap.querySelectorAll("[data-arg]"), function (el) {
+          if (!m && !el.value.trim()) m = el.getAttribute("data-arg");
+        });
+        if (m) { toast("参数「" + m + "」还没填"); return; }
+        done(collect());
+      }
+    }
+    document.addEventListener("keydown", onKey);
+  });
+}
+function plugLaunch(id) {
+  ensurePlugMeta(function () {
+    var meta = PLUG_META[id];
+    var req = meta && meta.needs_inputs;
+    if (req && (req.file || req.folder || req.text || (req.args || []).length)) {
+      uiInputsForm(req, "启动「" + (meta ? meta.name : id) + "」").then(function (inputs) {
+        if (!inputs) return;
+        doPlugLaunch(id, inputs);
+      });
+    } else {
+      doPlugLaunch(id, null);
+    }
+  });
+}
+function doPlugLaunch(id, inputs) {
+  fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: id, inputs: inputs || undefined }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast("启动失败：" + (d.error || "未知错误")); return; }
+      toast(d.output_dir ? "已启动——结果会输出到：" + d.output_dir : (d.hint || "已启动"));
+      PLUG_META = {};          // 插件可能被编辑过，下次重新拉
+      refreshStatus();
+      if (location.hash.indexOf("#/plugins") === 0) setTimeout(renderPlugins, 1200);
+    })
+    .catch(function () { toast("启动请求失败（桌面服务没响应）"); });
+}
+function plugStop(id) {
+  fetch("/api/stop", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: id }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      toast(d.ok ? "已结束（PID " + (d.killed || []).join(", ") + "）" : (d.error || "它没有在运行"));
+      refreshStatus();
+      if (location.hash.indexOf("#/plugins") === 0) setTimeout(renderPlugins, 1200);
+    })
+    .catch(function () { toast("停止请求失败"); });
+}
+function relocate(id, presetPath) {
+  uiConfirm("告诉工具箱这个软件的新位置（它可能被移动或卸载了）。工具箱没有动过它，只是更新记录里的路标。")
+    .then(function (yes) {
+      if (!yes) return;
+      pickOrPastePath(presetPath).then(function (path) {
+        if (!path) return;
+        fetch("/api/plugins/p/" + id + "/relocate", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: path }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            toast(d.ok ? "已指向新位置，恢复可用" : (d.error || "定位失败"));
+            refreshStatus();
+            if (location.hash.indexOf("#/plugins") === 0) renderRoute();
+          }).catch(function () { toast("请求失败"); });
+      });
+    });
+}
+/* 选路径：有 pywebview 桥就用原生对话框，否则用页内输入框（原生 prompt 在嵌入浏览器不可靠） */
+function pickOrPastePath(startDir) {
+  return new Promise(function (resolve) {
+    var bridge = window.pywebview && window.pywebview.api;
+    if (bridge && typeof bridge.pick_file === "function") {
+      bridge.pick_file().then(function (p) { resolve(p || ""); })
+        .catch(function () { resolve(""); });
+      return;
+    }
+    uiPrompt("把软件的完整路径粘贴到这里\n（在资源管理器里选中文件，按住 Shift 右键 → 复制文件地址）",
+             startDir || "")
+      .then(function (v) { resolve(v || ""); });
+  });
+}
+function toggleFav(id) {
+  var favs = (SETTINGS.favorites || []).slice();
+  var i = favs.indexOf(id);
+  if (i >= 0) favs.splice(i, 1); else favs.unshift(id);
+  postSettings({ favorites: favs }, function () { renderRoute(); renderNav(); });
+}
+function enableDrag(scope) {
+  var cards = scope.querySelectorAll(".card[data-id]");
+  var dragged = null;
+  Array.prototype.forEach.call(cards, function (c) {
+    c.addEventListener("dragstart", function () { dragged = c; c.classList.add("dragging"); });
+    c.addEventListener("dragend", function () { c.classList.remove("dragging"); dragged = null; });
+    c.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      if (!dragged || dragged === c) return;
+      var r = c.getBoundingClientRect();
+      var after = (e.clientY - r.top) > r.height / 2;
+      c.parentNode.insertBefore(dragged, after ? c.nextSibling : c);
+    });
+  });
+  scope.addEventListener("drop", function (e) {
+    e.preventDefault();
+    var ids = [];
+    Array.prototype.forEach.call(scope.querySelectorAll(".card[data-id]"), function (c) {
+      ids.push(c.getAttribute("data-id"));
+    });
+    if (ids.length) postSettings({ order: ids });
+  });
+}
+
+/* ================= 启动 / 停止 ================= */
+var launchTimers = {};
+function launch(id, params) {
+  var t = toolById(id);
+  toast("正在启动 " + (t ? t.name : id) + "…");
+  fetch("/api/launch", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: id, params: params || {} }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast("启动失败：" + (d.error || "未知错误")); return; }
+      toast(d.already ? "已经在运行了，直接打开即可" : "已拉起，等服务就绪（几秒）…");
+      clearInterval(launchTimers[id]);
+      var tries = 0;
+      launchTimers[id] = setInterval(function () {
+        tries++;
+        refreshStatus();
+        if (isOnline(id) || tries > 20) clearInterval(launchTimers[id]);
+        if (isOnline(id) && location.hash === "#/tool/" + id) renderRoute();
+      }, 1500);
+      refreshStatus();
+    })
+    .catch(function () { toast("启动请求失败（桌面服务没响应）"); });
+}
+function stopTool(id) {
+  var t = toolById(id);
+  if (!t) return;
+  uiConfirm("强制结束 " + t.name + "？\n该工具未保存的工作可能丢失。").then(function (yes) {
+    if (!yes) return;
+    fetch("/api/stop", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        toast(d.ok ? "已结束（PID " + (d.killed || []).join(", ") + "）" : "停止失败：" + (d.error || "未知"));
+        refreshStatus();
+        if (location.hash.indexOf("#/tool/") === 0) renderRoute();
+      })
+      .catch(function () { toast("停止请求失败"); });
+  });
+}
+
+/* ================= 嵌入界面 ================= */
+function openEmbed(id, inDetail) {
+  var t = toolById(id);
+  if (!t) return;
+  if (!SHELL && !inDetail) { window.open(t.url, "_blank", "noopener"); return; }
+  if (!isOnline(id)) { toast("工具还没上线 —— 先启动，等状态点亮再打开"); return; }
+  location.hash = "#/tool/" + id + "/ui";
+}
+function embedHtml(t) {
+  return '<div id="embedbar">' +
+    '<button class="btn" id="embrefresh">🔄 刷新</button>' +
+    '<button class="btn" id="embback">↩ 返回详情</button>' +
+    '<button class="btn" id="embbrowser">在系统浏览器打开 ↗</button>' +
+    '<span class="ms">' + esc(t.url) + "</span></div>" +
+    '<iframe id="embedframe" src="' + esc(t.url) + '" title="' + esc(t.name) + '"></iframe>';
+}
+
+/* ================= 详情页 ================= */
+function checkRow(c) {
+  var sym = c.level === "fail" ? "✗" : (c.level === "warn" ? "⚠" : "✓");
+  return '<div class="check ' + esc(c.level) + '"><span class="sym">' + sym + "</span><div>" +
+    '<div class="t"><b>' + esc(c.title) + "</b>　" + esc(c.detail) + "</div>" +
+    (c.fix ? '<div class="fix">怎么办：' + esc(c.fix) + "</div>" : "") + "</div></div>";
+}
+function renderDetail(id) {
+  var v = document.getElementById("view");
+  var t = toolById(id);
+  if (!t) { v.innerHTML = '<div class="empty">没有这个工具（注册表变了？刷新试试）</div>'; return; }
+  if (t.kind === "plugin") { renderPluginDetail(t); return; }
+  var hashParts = location.hash.split("/");
+  var showUi = hashParts[3] === "ui";
+  var st = STATUS[id] || {}, online = !!st.online;
+  var fav = (SETTINGS.favorites || []).indexOf(id) >= 0;
+  var statusTag = t.status === "experimental" ? '<span class="tag exp">实验性</span>'
+    : (t.status === "needs-setup" ? '<span class="tag warn">需配置</span>' : '<span class="tag">可用</span>');
+
+  var paramsHtml = "";
+  if (t.launch_params && t.launch_params.length) {
+    paramsHtml = '<div class="panel"><h4>启动参数</h4>' + t.launch_params.map(function (p) {
+      return '<div class="paramrow"><label>' + esc(p.name) + '</label>' +
+        '<input data-param="' + esc(p.name) + '" value="' + esc(p.default || "") + '"></div>';
+    }).join("") +
+    (online ? "" : '<div style="margin-top:8px"><button class="btn primary" id="plaunch2">▶ 用上面的参数启动</button></div>') +
+    "</div>";
+  }
+
+  var html = '<button class="btn back" id="backbtn">← 返回</button>' +
+    '<div class="dhead"><span class="ticon">' + esc(t.icon) + "</span><div>" +
+    "<h2>" + esc(t.name) + ' <button class="star" data-star="' + esc(t.id) + '" style="position:static;font-size:19px">' + (fav ? "★" : "☆") + "</button></h2>" +
+    '<div class="sub"><span class="tag">' + esc(t.category) + "</span>" + statusTag +
+    '<span class="ms">端口 ' + esc(t.port) + " · " + (online ? "运行中 · " + (st.ms || 0) + "ms" : "未运行") + "</span></div></div>" +
+    '<div class="dacts">' +
+    (online ? '<button class="btn open" id="dopen">打开界面</button>' +
+      '<button class="btn danger" data-stop="' + esc(t.id) + '">停止</button>'
+      : '<button class="btn primary" data-launch="' + esc(t.id) + '">▶ 启动</button>') +
+    "</div></div>";
+
+  if (showUi && online) {
+    html += embedHtml(t);
+    v.innerHTML = html;
+    bindCards(v);
+    document.getElementById("backbtn").onclick = function () { location.hash = "#/tool/" + id; };
+    document.getElementById("embrefresh").onclick = function () {
+      var f = document.getElementById("embedframe"); f.src = f.src;
+    };
+    document.getElementById("embback").onclick = function () { location.hash = "#/tool/" + id; };
+    document.getElementById("embbrowser").onclick = function () { window.open(t.url, "_blank", "noopener"); };
+    return;
+  }
+
+  html += (t.note ? '<div class="envbanner">ℹ️ ' + esc(t.note) + "</div>" : "") +
+    '<div class="dgrid">' +
+    '<div class="panel"><h4>这是做什么的</h4>' +
+    '<div class="kv"><b>用途</b>' + esc(t.desc) + "</div>" +
+    (t.about && t.about.input ? '<div class="kv"><b>你要给什么</b>' + esc(t.about.input) + "</div>" : "") +
+    (t.about && t.about.output ? '<div class="kv"><b>你能得到什么</b>' + esc(t.about.output) + "</div>" : "") +
+    (t.about && t.about.params && t.about.params.length
+      ? t.about.params.map(function (p) {
+          return '<div class="kv"><b>' + esc(p.name) + "</b>" + esc(p.desc || "") + "</div>";
+        }).join("")
+      : "") +
+    (t.setup_hint ? '<div class="kv" style="color:var(--warn)"><b>一次性配置</b>' + esc(t.setup_hint) + "</div>" : "") +
+    "</div>" +
+    '<div class="panel"><h4>这台电脑上的状态</h4><div id="dchecks">读取中…</div></div>' +
+    "</div>" + paramsHtml +
+    '<div class="panel" style="margin-top:14px"><h4>运行日志' +
+    '<span style="font-weight:400">（桌面版拉起的实例）</span>' +
+    '<button class="btn" id="logrefresh" style="float:right">刷新</button></h4>' +
+    '<div id="logbox" class="mono"></div></div>';
+  v.innerHTML = html;
+  bindCards(v);
+  document.getElementById("backbtn").onclick = function () { location.hash = "#/"; };
+  var pl2 = document.getElementById("plaunch2");
+  if (pl2) pl2.onclick = function () {
+    var params = {};
+    Array.prototype.forEach.call(v.querySelectorAll("[data-param]"), function (inp) {
+      params[inp.getAttribute("data-param")] = inp.value;
+    });
+    launch(id, params);
+  };
+  document.getElementById("dopen") && (document.getElementById("dopen").onclick = function () { openEmbed(id, true); });
+  loadLog(id);
+  fetch("/api/envcheck").then(function (r) { return r.json(); }).then(function (d) {
+    var box = document.getElementById("dchecks");
+    if (!box) return;
+    var mine = (d.envcheck.checks || []).filter(function (c) { return c.tool === id; });
+    if (!mine.length) { box.innerHTML = '<div class="check"><span class="sym">✓</span><div>这个工具没有特殊依赖，点启动就能用</div></div>'; return; }
+    box.innerHTML = mine.map(checkRow).join("");
+  }).catch(function () {});
+}
+var logTimer = null;
+function loadLog(id) {
+  fetch("/api/log/" + id + "?lines=120").then(function (r) { return r.json(); }).then(function (d) {
+    var box = document.getElementById("logbox");
+    if (!box) return;
+    box.textContent = d.log || "";
+    box.scrollTop = box.scrollHeight;
+  }).catch(function () {});
+  clearInterval(logTimer);
+  logTimer = setInterval(function () {
+    if (!document.getElementById("logbox") || location.hash.indexOf("#/tool/") !== 0) { clearInterval(logTimer); return; }
+    loadLogSilent(id);
+  }, 2500);
+}
+function loadLogSilent(id) {
+  fetch("/api/log/" + id + "?lines=120").then(function (r) { return r.json(); }).then(function (d) {
+    var box = document.getElementById("logbox");
+    if (!box) return;
+    var atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+    box.textContent = d.log || "";
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }).catch(function () {});
+}
+
+/* ================= 环境自检页 ================= */
+function renderEnv() {
+  var v = document.getElementById("view");
+  v.innerHTML = '<div class="cathead"><h2>🩺 环境自检</h2><span class="n">这台电脑能不能把每个工具用起来</span></div>' +
+    '<div id="envbody"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+  fetch("/api/envcheck").then(function (r) { return r.json(); }).then(function (d) {
+    var ev = d.envcheck;
+    var box = document.getElementById("envbody");
+    if (!box) return;
+    var cls = ev.n_fail ? "bad" : (ev.n_warn ? "warn" : "ok");
+    var html = '<div class="verdict ' + cls + '">' + (ev.n_fail ? "✗ " : ev.n_warn ? "⚠ " : "✓ ") + esc(ev.verdict) + "</div>";
+    var global_ = (ev.checks || []).filter(function (c) { return !c.tool; });
+    var byTool = {};
+    (ev.checks || []).forEach(function (c) {
+      if (c.tool) (byTool[c.tool] = byTool[c.tool] || []).push(c);
+    });
+    html += '<div class="panel"><h4>全局</h4>' + global_.map(checkRow).join("") + "</div>";
+    Object.keys(byTool).forEach(function (tid) {
+      var t = toolById(tid);
+      html += '<div class="panel" style="margin-top:12px"><h4>' + esc(t ? t.icon + " " + t.name : tid) + "</h4>" +
+        byTool[tid].map(checkRow).join("") + "</div>";
+    });
+    if (!SETTINGS.first_run_done) postSettings({ first_run_done: true }, renderNav);
+    box.innerHTML = html;
+  }).catch(function () {
+    var box = document.getElementById("envbody");
+    if (box) box.innerHTML = '<div class="empty">自检请求失败 —— 桌面服务可能已退出，重新打开应用试试</div>';
+  });
+}
+
+/* ================= 设置页 ================= */
+function renderSettings() {
+  var v = document.getElementById("view");
+  var theme = getTheme();
+  v.innerHTML = '<div class="cathead"><h2>⚙️ 设置</h2></div>' +
+    (WARNINGS.length ? '<div class="envbanner">⚠ 注册表提示：' + WARNINGS.map(esc).join("；") + "</div>" : "") +
+    '<div class="panel"><h4>外观</h4>' +
+    '<div class="setrow"><span class="lab">主题</span>' +
+    ["auto", "light", "dark"].map(function (p) {
+      return '<button class="btn' + (theme === p ? " primary" : "") + '" data-theme="' + p + '">' +
+        (p === "auto" ? "🖥 跟随系统" : p === "light" ? "☀️ 浅色" : "🌙 深色") + "</button>";
+    }).join("") + "</div></div>" +
+    '<div class="panel" style="margin-top:14px"><h4>收藏与排序</h4>' +
+    '<div class="setrow"><span class="lab">收藏列表</span>' +
+    ((SETTINGS.favorites || []).length
+      ? SETTINGS.favorites.map(function (id) { var t = toolById(id); return t ? esc(t.name) : esc(id); }).join("、")
+      : "<span class='ms'>空 —— 在工具卡右上角点 ☆ 收藏</span>") + "</div>" +
+    '<div class="setrow"><span class="lab">排序</span><span class="ms">在首页直接拖动卡片排序，自动保存</span>' +
+    '<button class="btn" id="resetorder">恢复默认排序</button></div></div>' +
+    '<div class="panel" style="margin-top:14px"><h4>备份（导入 / 导出）</h4>' +
+    '<div class="setrow"><span class="lab">导出</span><button class="btn" id="expset">下载 settings.json</button>' +
+    '<span class="ms">包含收藏、排序、主题 —— 换电脑时先导出</span></div>' +
+    '<div class="setrow" style="display:block"><span class="lab">导入</span>' +
+    '<textarea id="imparea" placeholder="把导出的 settings.json 内容粘到这里，然后点导入"></textarea>' +
+    '<div style="margin-top:8px"><button class="btn primary" id="impset">导入</button></div></div>' +
+    '<div class="setrow"><span class="lab">危险区</span><button class="btn danger" id="resetall">清空全部设置</button></div></div>' +
+    '<div class="panel" style="margin-top:14px"><h4>关于</h4>' +
+    '<div class="kv"><b>版本</b>ToolHub Desktop ' + esc(APP.version || "?") + "（门户 v0.11 兼容并存）</div>" +
+    '<div class="kv"><b>Python</b>' + esc(APP.python || "?") + (APP.bundled_python ? "（安装包自带，不依赖系统）" : "（当前系统解释器）") + "</div>" +
+    '<div class="kv"><b>程序目录</b><span class="code">' + esc(APP.workspace || "?") + "</span></div>" +
+    '<div class="kv"><b>隐私</b>全部数据保存在本机，任何工具都不联网上传（LANDrop 只在你主动共享时走局域网）</div>' +
+    "</div>";
+  Array.prototype.forEach.call(v.querySelectorAll("[data-theme]"), function (b) {
+    b.onclick = function () { setTheme(b.getAttribute("data-theme")); renderSettings(); };
+  });
+  document.getElementById("resetorder").onclick = function () {
+    postSettings({ order: [] }, function () { toast("已恢复默认排序"); renderSettings(); });
+  };
+  document.getElementById("resetall").onclick = function () {
+    uiConfirm("清空收藏、排序等全部设置？").then(function (yes) {
+      if (!yes) return;
+      postSettings({ reset: true }, function () { toast("已清空"); renderSettings(); renderNav(); });
+    });
+  };
+  document.getElementById("expset").onclick = function () {
+    var blob = new Blob([JSON.stringify(SETTINGS, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "toolhub-settings.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  document.getElementById("impset").onclick = function () {
+    var raw = document.getElementById("imparea").value.trim();
+    if (!raw) { toast("先粘贴导出的内容"); return; }
+    try {
+      var data = JSON.parse(raw);
+      postSettings({
+        favorites: data.favorites || [], order: data.order || [],
+        theme: data.theme || "auto", first_run_done: data.first_run_done || true
+      }, function () { toast("导入成功"); renderSettings(); renderNav(); applyTheme(); });
+    } catch (e) { toast("导入失败：不是合法的 JSON"); }
+  };
+}
+
+/* ================= 工作场景（阶段 1） ================= */
+var SCENES = [];
+function loadScenes(cb) {
+  fetch("/api/scenes").then(function (r) { return r.json(); }).then(function (d) {
+    SCENES = d.scenes || []; if (cb) cb();
+  }).catch(function () { SCENES = []; if (cb) cb(); });
+}
+var KIND_ICON = { tool: "🧰", folder: "📁", file: "📄", url: "🌐" };
+function renderScenes() {
+  var v = document.getElementById("view");
+  loadScenes(function () {
+    if (!SCENES.length) {
+      v.innerHTML = '<div class="cathead"><h2>🎬 工作场景</h2><span class="n">一次启动一整组工具</span></div>' +
+        '<div class="empty">还没有场景。<br><b>场景 = 一组常用资源的清单</b>：比如「Python 开发」= 编辑器 + 项目文件夹 + 文档网页。建好之后点一下，全部按顺序打开——不用再一个个找了。</div>' +
+        '<div style="text-align:center;margin-top:14px"><button class="btn primary" id="scnew">➕ 新建第一个场景</button></div>';
+      document.getElementById("scnew").onclick = function () { location.hash = "#/scene-edit"; };
+      renderNav();
+      return;
+    }
+    v.innerHTML = '<div class="cathead"><h2>🎬 工作场景</h2><span class="n">一次启动一整组</span>' +
+      '<button class="btn primary" style="margin-left:auto" id="scnew">➕ 新建场景</button></div>' +
+      '<div class="grid">' + SCENES.map(function (s) {
+        return '<div class="card"><div class="row"><span class="ticon" style="font-size:26px">' + esc(s.icon || "🎬") + "</span>" +
+          "<h3>" + esc(s.name) + '</h3><span class="ms">' + (s.items || []).length + " 项</span></div>" +
+          "<p>" + esc((s.items || []).slice(0, 4).map(function (it) {
+            var t = toolById(it.ref);
+            return it.kind === "tool" && t ? t.name : (it.ref.length > 26 ? it.ref.slice(0, 26) + "…" : it.ref);
+          }).join("、") + ((s.items || []).length > 4 ? " …" : "")) + "</p>" +
+          '<div class="tagrow"><span class="ms">' + (s.last_launched ? "上次 " + relTime(s.last_launched) : "还没启动过") + "</span></div>" +
+          '<div class="acts"><button class="btn primary" data-sclaunch="' + esc(s.id) + '">▶ 启动</button>' +
+          '<button class="btn" data-scedit="' + esc(s.id) + '">编辑</button>' +
+          '<button class="btn" data-scdup="' + esc(s.id) + '">复制</button>' +
+          '<button class="btn danger" data-scdel="' + esc(s.id) + '">删除</button></div></div>';
+      }).join("") + "</div>";
+    document.getElementById("scnew").onclick = function () { location.hash = "#/scene-edit"; };
+    Array.prototype.forEach.call(v.querySelectorAll("[data-sclaunch]"), function (b) {
+      b.onclick = function () { sceneLaunchFlow(b.getAttribute("data-sclaunch")); };
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-scedit]"), function (b) {
+      b.onclick = function () { location.hash = "#/scene-edit?id=" + encodeURIComponent(b.getAttribute("data-scedit")); };
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-scdup]"), function (b) {
+      b.onclick = function () {
+        fetch("/api/scenes/p/" + encodeURIComponent(b.getAttribute("data-scdup")) + "/duplicate",
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { toast(d.ok ? "已复制" : (d.error || "复制失败")); renderScenes(); })
+          .catch(function () { toast("请求失败"); });
+      };
+    });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-scdel]"), function (b) {
+      b.onclick = function () {
+        var s = SCENES.filter(function (x) { return x.id === b.getAttribute("data-scdel"); })[0];
+        uiConfirm("删除场景「" + (s ? s.name : "") + "」？\n（只删这份组合清单，不删任何工具或文件）").then(function (yes) {
+          if (!yes) return;
+          fetch("/api/scenes/p/" + encodeURIComponent(b.getAttribute("data-scdel")) + "/remove",
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { toast(d.ok ? "已删除" : (d.error || "失败")); renderScenes(); refreshStatus(); })
+            .catch(function () { toast("请求失败"); });
+        });
+      };
+    });
+    renderNav();
+  });
+}
+/* 场景编辑器 */
+var SE = null;   // 编辑态 {id?, name, icon, items:[]}
+function renderSceneEdit() {
+  // 防丢字：后台 5s 状态轮询会触发本页重绘——先把用户已敲进 DOM 的值
+  // 同步回内存态，否则重绘一次输入框就被清空（真 bug，E2E 抓到）
+  if (SE && document.getElementById("sename")) {
+    SE.name = document.getElementById("sename").value;
+    var ic = document.getElementById("seicon");
+    if (ic) SE.icon = ic.value;
+  }
+  var v = document.getElementById("view");
+  var editId = (location.hash.match(/id=([^&]+)/) || [])[1];
+  if (!SE || (editId || "") !== (SE._loadedFrom || "")) {
+    var src = editId ? SCENES.filter(function (s) { return s.id === decodeURIComponent(editId); })[0] : null;
+    SE = { _loadedFrom: editId || "", id: src ? src.id : "", name: src ? src.name : "",
+           icon: src ? (src.icon || "🎬") : "🎬", items: src ? JSON.parse(JSON.stringify(src.items)) : [] };
+  }
+  var head = '<div class="cathead"><h2>' + (editId ? "✏️ 编辑场景" : "➕ 新建场景") + "</h2></div>" +
+    '<button class="btn back" id="seback">← 返回场景列表</button>';
+  var toolOpts = TOOLS.map(function (t) {
+    return '<option value="' + esc(t.id) + '">' + esc(t.icon + " " + t.name) + "</option>";
+  }).join("");
+  v.innerHTML = head + '<div class="wcard"><h3>场景内容</h3>' +
+    '<div class="hint2">把每次工作都要一起打开的东西列进来——工具箱只记清单，不动你的任何软件。</div>' +
+    '<div class="wrow"><label>名称</label><input type="text" id="sename" placeholder="例：Python 开发 / AI 创作 / 学习办公" value="' + esc(SE.name) + '">' +
+    '<input type="text" id="seicon" maxlength="4" style="max-width:64px;text-align:center" value="' + esc(SE.icon) + '" title="一个 emoji 当图标"></div>' +
+    '<div style="margin:10px 0"><b style="font-size:13.5px">条目（从上到下依次启动）</b></div><div id="seitems"></div>' +
+    '<div class="wrow" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><label>添加条目</label>' +
+    '<select id="setool" style="max-width:230px">' + toolOpts + "</select>" +
+    '<button class="btn" id="seaddtool">＋ 加工具</button>' +
+    '<select id="sekind" style="max-width:120px"><option value="folder">文件夹</option><option value="file">文件</option><option value="url">网址</option></select>' +
+    '<input type="text" id="seref" placeholder="路径或 https:// 网址" style="max-width:260px">' +
+    '<button class="btn" id="seaddref">＋ 加路径/网址</button></div>' +
+    '<div class="wfoot"><button class="btn" id="secancel">取消</button><span class="spacer"></span>' +
+    '<button class="btn primary" id="sesave">💾 保存场景</button></div></div>';
+  document.getElementById("seback").onclick = function () { SE = null; location.hash = "#/scenes"; };
+  document.getElementById("secancel").onclick = function () { SE = null; location.hash = "#/scenes"; };
+  function drawItems() {
+    var box = document.getElementById("seitems");
+    if (!SE.items.length) { box.innerHTML = '<div class="empty">还没有条目——用下面的「添加条目」加工具、文件夹或网址</div>'; return; }
+    box.innerHTML = SE.items.map(function (it, i) {
+      var t = it.kind === "tool" ? toolById(it.ref) : null;
+      var label = it.kind === "tool" ? (t ? t.icon + " " + t.name : "⚠ 工具不存在: " + it.ref)
+        : (KIND_ICON[it.kind] || "?") + " " + it.ref;
+      return '<div class="paramrow"><label>#' + (i + 1) + "</label>" +
+        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px">' + esc(label) + "</span>" +
+        '<button class="btn" data-seup="' + i + '"' + (i === 0 ? " disabled" : "") + '>↑</button>' +
+        '<button class="btn" data-sedown="' + i + '"' + (i === SE.items.length - 1 ? " disabled" : "") + '>↓</button>' +
+        '<button class="btn danger" data-sedel="' + i + '">✕</button></div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-seup]"), function (b) {
+      b.onclick = function () { var i = +b.getAttribute("data-seup"); SE.items.splice(i - 1, 0, SE.items.splice(i, 1)[0]); drawItems(); };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-sedown]"), function (b) {
+      b.onclick = function () { var i = +b.getAttribute("data-sedown"); SE.items.splice(i + 1, 0, SE.items.splice(i, 1)[0]); drawItems(); };
+    });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-sedel]"), function (b) {
+      b.onclick = function () { SE.items.splice(+b.getAttribute("data-sedel"), 1); drawItems(); };
+    });
+  }
+  drawItems();
+  document.getElementById("seaddtool").onclick = function () {
+    var idv = document.getElementById("setool").value;
+    if (SE.items.some(function (it) { return it.kind === "tool" && it.ref === idv; })) { toast("这个工具已经在场景里了"); return; }
+    SE.items.push({ kind: "tool", ref: idv });
+    drawItems();
+  };
+  document.getElementById("seaddref").onclick = function () {
+    var kind = document.getElementById("sekind").value;
+    var ref = document.getElementById("seref").value.trim();
+    if (!ref) { toast("先填路径或网址"); return; }
+    if (kind === "url" && !/^https?:\/\//i.test(ref)) { toast("网址要以 http:// 或 https:// 开头"); return; }
+    SE.items.push({ kind: kind, ref: ref });
+    document.getElementById("seref").value = "";
+    drawItems();
+  };
+  document.getElementById("sesave").onclick = function () {
+    var name = document.getElementById("sename").value.trim();
+    var icon = document.getElementById("seicon").value.trim() || "🎬";
+    if (!name) { toast("先给场景起个名字"); return; }
+    var id = SE.id || (("sc-" + name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") ||
+                       "sc-" + Date.now().toString(36)).slice(0, 40);
+    fetch("/api/scenes/save", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scene: { id: id, name: name, icon: icon, items: SE.items } }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { toast(d.error || "保存失败"); return; }
+        toast("场景已保存"); SE = null; location.hash = "#/scenes"; renderScenes();
+      }).catch(function () { toast("保存请求失败"); });
+  };
+}
+/* 启动流：预览（每项状态）→ 确认 → 执行 → 逐项结果 + 停止本次 */
+function sceneLaunchFlow(sid) {
+  fetch("/api/scenes/p/preview?id=" + encodeURIComponent(sid))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast(d.error || "预检失败"); return; }
+      var rows = (d.items || []).map(function (it) {
+        var tag = it.status === "ok" ? '<span class="tag">将启动</span>'
+          : it.status === "skip_running" ? '<span class="tag warn">已运行 → 跳过</span>'
+          : '<span class="tag warn" style="color:var(--bad);border-color:var(--bad)">失效</span>';
+        return '<div class="checkline"><span class="sym">' + (KIND_ICON[it.kind] || "?") + "</span><div>" +
+          "<b>" + esc(it.label || it.ref) + "</b> " + tag +
+          (it.reason ? '<div class="ms" style="font-size:11.5px">' + esc(it.reason) + "</div>" : "") +
+          "</div></div>";
+      }).join("");
+      var s = d.scene || {};
+      uiConfirmPanel(esc(s.icon || "🎬") + " 启动「" + esc(s.name) + "」？", rows +
+        '<div class="ms" style="margin-top:8px">确认后按顺序打开上面「将启动」的项；文件夹/网址交给系统打开（不会被追踪）。</div>')
+        .then(function (yes) {
+          if (!yes) return;
+          fetch("/api/scenes/p/" + encodeURIComponent(sid) + "/launch",
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+            .then(function (r) { return r.json(); })
+            .then(function (d2) {
+              if (!d2.ok) { toast(d2.error || "启动失败"); return; }
+              sceneResultPanel(d2, s);
+              refreshStatus();
+              renderScenes();
+            }).catch(function () { toast("启动请求失败"); });
+        });
+    }).catch(function () { toast("预检请求失败"); });
+}
+function sceneResultPanel(d, s) {
+  window.__lastSceneSession = d.session;   // E2E/诊断钩子：最近一次场景启动会话
+  var lines = (d.results || []).map(function (r) {
+    var sym = r.status === "ok" ? "✅" : r.status === "skip" ? "⏭" : "❌";
+    var t = toolById(r.ref);
+    return '<div class="kv">' + sym + " " + esc(t ? t.name : r.ref) + " — " + esc(r.detail || r.status) + "</div>";
+  }).join("");
+  var stopNote = d.untracked ? '<div class="ms">其中 ' + d.untracked + " 项是文件夹/文件/网址，由系统打开——不会被工具箱关闭。</div>" : "";
+  uiConfirmPanel("启动结果", lines + stopNote +
+    '<div class="wfoot"><button class="btn" data-close="1">完成</button>' +
+    '<button class="btn danger" data-scstop="1">⏹ 停止本次启动的工具</button></div>', {
+    buttons: false
+  }).then(function () {});
+  var stopBtn = document.querySelector("[data-scstop]");
+  if (stopBtn) stopBtn.onclick = function () {
+    fetch("/api/scenes/stop", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: d.session }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d3) {
+        window.__lastSceneStop = d3;   // E2E/诊断钩子
+        toast(d3.ok ? "已停止：" + (d3.stopped || []).join("、") +
+              ((d3.skipped || []).length ? "（" + d3.skipped.join("、") + "已不在运行）" : "")
+              : (d3.error || "停止失败"));
+        refreshStatus();
+        var close = document.querySelector("[data-close]");
+        if (close) close.click();
+      }).catch(function () { toast("停止请求失败"); });
+  };
+}
+/* 带自定义 HTML 的确认面板（场景预览/结果用）；buttons=false 时不渲染默认确认/取消 */
+function uiConfirmPanel(title, htmlBody, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:5vh 24px 24px;overflow:auto;";
+    wrap.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:640px;width:100%;box-shadow:var(--shadow-lg);padding:18px 20px;font-size:14px;color:var(--text)">' +
+      '<div style="font-weight:600;font-size:15px;margin-bottom:10px">' + title + "</div>" +
+      htmlBody +
+      (opts.buttons === false ? "" :
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">' +
+        '<button class="btn" data-r="0">取消</button>' +
+        '<button class="btn primary" data-r="1">确认启动</button></div>') + "</div>";
+    document.body.appendChild(wrap);
+    var closed = false;
+    function done(val) {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    }
+    function onKey(e) { if (e.key === "Escape") done(false); }
+    document.addEventListener("keydown", onKey);
+    var no = wrap.querySelector('[data-r="0"]');
+    var yes = wrap.querySelector('[data-r="1"]');
+    if (no) no.onclick = function () { done(false); };
+    if (yes) yes.onclick = function () { done(true); };
+    var cl = wrap.querySelector("[data-close]");
+    if (cl) cl.onclick = function () { done(false); };
+    wrap.addEventListener("click", function (e) { if (e.target === wrap) done(false); });
+  });
+}
+
+/* ---------- 商店应用挑选（阶段 C 二期）---------- */
+var STORE = { items: null, q: "" };
+function renderStoreApps() {
+  var v = document.getElementById("view");
+  var head = '<div class="cathead"><h2>🛍 商店应用</h2><span class="n">Windows 商店安装的 UWP 应用</span></div>' +
+    '<button class="btn back" id="staback">← 返回导入向导</button>';
+  if (STORE.items === null) {
+    v.innerHTML = head + '<div class="wcard"><div class="skel"></div><div class="skel"></div></div>';
+    document.getElementById("staback").onclick = function () { location.hash = "#/import"; };
+    fetch("/api/plugins/storeapps").then(function (r) { return r.json(); }).then(function (d) {
+      STORE.items = d.ok ? (d.items || []) : [];
+      renderStoreApps();
+    }).catch(function () { STORE.items = []; renderStoreApps(); });
+    return;
+  }
+  var q = STORE.q.toLowerCase();
+  var list = STORE.items.filter(function (it) {
+    return !q || it.name.toLowerCase().indexOf(q) >= 0;
+  });
+  v.innerHTML = head + '<div class="wcard"><h3>点一个应用进入导入向导</h3>' +
+    '<div class="ms" style="margin-bottom:8px">商店应用没有传统 exe 路径——工具箱登记它的系统 ID（AUMID），启动交给 Windows 完成。图标用字母占位。</div>' +
+    '<div class="wrow"><label>过滤</label><input type="text" id="stq" placeholder="输入名字过滤（如：计算器、Copilot）" value="' + esc(STORE.q) + '"></div>' +
+    '<div style="max-height:60vh;overflow:auto">' +
+    (list.length ? list.map(function (it) {
+      return '<div class="plugrow" data-aumid="' + esc(it.aumid) + '" data-sname="' + esc(it.name) + '" style="cursor:pointer">' +
+        '<span style="flex:none">🛍</span><div class="pmain"><div class="pname">' + hi(it.name, STORE.q) + "</div>" +
+        '<div class="pmeta"><span class="ms">' + esc(it.aumid) + "</span></div></div></div>";
+    }).join("") : '<div class="empty">没枚举到商店应用（或过滤无结果）</div>') + "</div></div>";
+  document.getElementById("staback").onclick = function () { location.hash = "#/import"; };
+  var qEl = document.getElementById("stq");
+  var t = null;
+  qEl.addEventListener("input", function () {
+    clearTimeout(t);
+    t = setTimeout(function () { STORE.q = qEl.value.trim(); renderStoreApps(); }, 200);
+  });
+  Array.prototype.forEach.call(v.querySelectorAll("[data-aumid]"), function (row) {
+    row.onclick = function () {
+      W.path = "shell:appsfolder\\" + row.getAttribute("data-aumid");
+      W.nameHint = row.getAttribute("data-sname");   // probe 时带上显示名
+      W.autoProbe = true;
+      location.hash = "#/import";
+    };
+  });
+}
+
+/* ================= 外部插件：详情 / 管理页 / 导入向导 ================= */
+function plugStateLabel(st) {
+  return { ok: "🟢 可用", invalid: "🔴 已失效", disabled: "⏸ 已停用",
+           draft: "📝 草稿" }[st] || st;
+}
+var KIND_CN = { exe: "程序", script: "脚本", store: "商店应用", url: "网址",
+                folder: "文件夹", doc: "文档" };
+function renderPluginDetail(t) {
+  var v = document.getElementById("view");
+  var st = STATUS[t.id] || {};
+  var fav = (SETTINGS.favorites || []).indexOf(t.id) >= 0;
+  var state = st.plugin_state || "ok";
+  var html = '<button class="btn back" id="backbtn">← 返回</button>' +
+    '<div class="dhead">' +
+    (t.icon_url ? '<img class="ticon-img" style="width:44px;height:44px;border-radius:10px" src="' + esc(t.icon_url) + '" onerror="this.style.display=\'none\'">'
+               : '<span class="ticon" style="font-size:38px">' + esc(t.icon) + "</span>") +
+    "<div><h2>" + esc(t.name) +
+    ' <button class="star' + (fav ? " on" : "") + '" data-star="' + esc(t.id) + '" style="position:static;font-size:19px">' + (fav ? "★" : "☆") + "</button></h2>" +
+    '<div class="sub"><span class="tag">' + esc(t.category) + '</span><span class="tag">外部插件</span>' +
+    (t.needs_admin ? '<span class="tag warn">🛡 管理员</span>' : "") +
+    '<span class="ms">' + plugStateLabel(state) + "</span></div></div>" +
+    '<div class="dacts">' +
+    (state === "invalid"
+      ? '<button class="btn primary" data-relocate="' + esc(t.id) + '">重新定位</button>'
+      : '<button class="btn primary" data-pluglaunch="' + esc(t.id) + '">▶ 启动</button>') +
+    (st.running ? '<button class="btn danger" data-stop="' + esc(t.id) + '">停止</button>' : "") +
+    "</div></div>" +
+    '<div class="dgrid">' +
+    '<div class="panel"><h4>这是做什么的</h4>' +
+    '<div class="kv"><b>说明</b>' + esc(t.desc) + "</div>" +
+    '<div class="kv"><b>怎么启动</b>工具箱按下面这条记录替你双击它——你的软件原封不动</div>' +
+    "</div>" +
+    '<div class="panel"><h4>这台电脑上的状态</h4><div id="plugstate">读取中…</div></div>' +
+    "</div>" +
+    '<div class="panel" style="margin-top:14px"><h4>将执行什么（可读预览）</h4><div id="plugpreview">读取中…</div></div>' +
+    '<div class="panel" style="margin-top:14px"><h4>运行记录' +
+    '<button class="btn" id="logrefresh" style="float:right">刷新</button></h4>' +
+    '<div id="logbox"></div></div>' +
+    '<div class="panel" style="margin-top:14px"><h4>管理</h4>' +
+    '<div class="setrow"><button class="btn" id="pedit">✏️ 编辑（说明/分类/参数）</button>' +
+    '<button class="btn" id="prelocate">📁 重新定位</button>' +
+    '<button class="btn" id="pshare">📤 导出清单</button>' +
+    '<button class="btn" id="ptoggle">' + (state === "disabled" ? "启用" : "停用") + "</button>" +
+    '<button class="btn danger" id="premove">移除插件</button></div>' +
+    '<div class="ms" style="margin-top:6px">移除只会删掉工具箱里的记录、图标副本和日志——你的软件本身不会被删除。导出的清单不含任何运行记录，发给别人即可在他们的工具箱里导入。</div></div>';
+  v.innerHTML = html;
+  bindCards(v);
+  document.getElementById("backbtn").onclick = function () { location.hash = "#/plugins"; };
+  document.getElementById("logrefresh").onclick = function () { loadPlugLog(t.id); };
+  document.getElementById("pedit").onclick = function () { location.hash = "#/import?resume=" + encodeURIComponent(t.id); };
+  document.getElementById("prelocate").onclick = function () { relocate(t.id); };
+  document.getElementById("pshare").onclick = function () { exportShare([t.id]); };
+  document.getElementById("ptoggle").onclick = function () {
+    var action = state === "disabled" ? "enable" : "disable";
+    fetch("/api/plugins/p/" + t.id + "/" + action, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { toast(d.ok ? "已" + (action === "enable" ? "启用" : "停用") : (d.error || "操作失败"));
+        refreshStatus(); renderRoute(); })
+      .catch(function () { toast("请求失败"); });
+  };
+  document.getElementById("premove").onclick = function () {
+    uiConfirm("移除插件「" + t.name + "」？\n只删工具箱里的记录——你的软件不会被删除。").then(function (yes) {
+      if (!yes) return;
+      fetch("/api/plugins/p/" + t.id + "/remove", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { return r.json(); })
+        .then(function () { toast("已移除"); location.hash = "#/plugins"; refreshStatus(); })
+        .catch(function () { toast("请求失败"); });
+    });
+  };
+  fetch("/api/plugins").then(function (r) { return r.json(); }).then(function (d) {
+    var me = (d.plugins || []).filter(function (p) { return p.id === t.id; })[0];
+    var box = document.getElementById("plugstate");
+    if (box && me) {
+      box.innerHTML =
+        '<div class="kv"><b>状态</b>' + plugStateLabel(me.state) + (me.running ? "（正在运行）" : "") + "</div>" +
+        '<div class="kv"><b>上次运行</b>' + (me.last_launched ? relTime(me.last_launched) : "还没运行过") + "</div>" +
+        '<div class="kv"><b>运行次数</b>' + (me.run_count || 0) + "</div>" +
+        '<div class="kv"><b>来源</b>' + (me.source === "shared" ? "别人分享的清单" : "自己导入") + "</div>";
+    }
+  }).catch(function () {});
+  fetch("/api/plugins/" + encodeURIComponent(t.id)).then(function (r) { return r.json(); })
+    .then(function (d) {
+      var box = document.getElementById("plugpreview");
+      if (!box || !d.manifest) return;
+      var m = d.manifest, lp = m.launch || {};
+      var argLine = (lp.args || []).length
+        ? '<div class="kv2"><b>参数模板</b>' + esc((lp.args || []).join("  ")) + "</div>" : "";
+      var outLine = "";
+      if ((m.output || {}).kind === "directory" && (m.output || {}).dir) {
+        outLine = '<div class="kv2"><b>输出到</b>' + esc(m.output.dir) +
+          ' <button class="btn" id="poutdir" style="margin-left:6px">📂 打开输出文件夹</button></div>';
+      }
+      box.innerHTML = '<div class="preview-card">' +
+        '<div class="kv2"><b>类型</b>' + esc(KIND_CN[m.kind] || m.kind) +
+        (lp.interpreter ? "（" + esc(lp.interpreter) + "）" : "") + "</div>" +
+        '<div class="kv2"><b>将运行</b>' + esc(lp.target || "") + "</div>" + argLine + outLine +
+        "</div>";
+      var ob = document.getElementById("poutdir");
+      if (ob) ob.onclick = function () {
+        fetch("/api/open-dir", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dir: m.output.dir }) })
+          .then(function (r) { return r.json(); })
+          .then(function (r2) { if (!r2.ok) toast(r2.error || "打不开"); })
+          .catch(function () { toast("请求失败"); });
+      };
+    }).catch(function () {});
+  loadPlugLog(t.id);
+}
+function loadPlugLog(id) {
+  fetch("/api/plugins/" + id + "/log").then(function (r) { return r.json(); })
+    .then(function (d) {
+      var box = document.getElementById("logbox");
+      if (!box) return;
+      box.id = "logbox";
+      box.className = "";
+      box.style.cssText = "margin:6px 0 0;background:var(--code-bg);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font:12px/1.55 Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto";
+      box.textContent = d.log || "还没有运行记录——点一次启动，这里就会出现工具箱替你执行的每一步";
+    }).catch(function () {});
+}
+
+/* ---------- 管理页 ---------- */
+function renderPlugins() {
+  var v = document.getElementById("view");
+  v.innerHTML = '<div class="cathead"><h2>🔌 我的插件</h2><span class="n">从电脑里导入的第三方软件</span>' +
+    '<button class="btn primary" style="margin-left:auto" id="addplug">➕ 导入软件</button></div>' +
+    '<div class="envbanner" style="margin-bottom:14px">导入只是<b>记个路标</b>：工具箱不复制、不移动、不修改你的软件；移除插件也不会删除软件本身。' +
+    '<button class="btn" id="shareexport">📤 导出全部清单</button> ' +
+    '<button class="btn" id="shareimport">📥 导入分享文件</button></div>' +
+    '<div class="panel"><div id="pluglist">读取中…</div></div>';
+  document.getElementById("addplug").onclick = function () { location.hash = "#/import"; };
+  document.getElementById("shareexport").onclick = function () {
+    fetch("/api/plugins").then(function (r) { return r.json(); }).then(function (d) {
+      var ids = (d.plugins || []).filter(function (p) { return p.state !== "draft"; })
+                                 .map(function (p) { return p.id; });
+      if (!ids.length) { toast("还没有可导出的插件"); return; }
+      exportShare(ids);
+    }).catch(function () { toast("读取插件列表失败"); });
+  };
+  document.getElementById("shareimport").onclick = function () { uiShareImport(); };
+  fetch("/api/plugins").then(function (r) { return r.json(); }).then(function (d) {
+    var list = d.plugins || [];
+    var box = document.getElementById("pluglist");
+    if (!box) return;
+    if (!list.length) {
+      box.innerHTML = '<div class="empty">还没有导入任何软件。<br>点右上角「➕ 导入软件」，把常用的绿色小工具都收进来——工具箱会自己长大。</div>';
+      return;
+    }
+    list.sort(function (a, b) { return (b.imported_at || "").localeCompare(a.imported_at || ""); });
+    box.innerHTML = list.map(function (p) {
+      return '<div class="plugrow" data-pid="' + esc(p.id) + '" data-state="' + esc(p.state) + '">' +
+        '<img class="pico" src="' + esc(p.icon_url) + '" onerror="this.src=\'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧩</text></svg>\'">' +
+        '<div class="pmain"><div class="pname">' + esc(p.name) + "</div>" +
+        '<div class="pmeta"><span class="statetag ' + esc(p.state) + '">' + plugStateLabel(p.state) + "</span>" +
+        "<span>" + esc(KIND_CN[p.kind] || p.kind) + "</span><span>" + (p.run_count || 0) + " 次运行</span>" +
+        "<span>" + (p.last_launched ? relTime(p.last_launched) : "未运行过") + "</span></div></div>" +
+        '<div class="pacts">' +
+        (p.state === "invalid"
+          ? '<button class="btn primary" data-act="relocate">重新定位</button>'
+          : '<button class="btn primary" data-act="launch">启动</button>') +
+        (p.running ? '<button class="btn danger" data-act="stop">停止</button>' : "") +
+        '<button class="btn" data-act="edit">编辑</button>' +
+        '<button class="btn" data-act="toggle">' + (p.state === "disabled" ? "启用" : "停用") + "</button>" +
+        '<button class="btn danger" data-act="remove">移除</button>' +
+        "</div></div>";
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".plugrow"), function (row) {
+      var pid = row.getAttribute("data-pid");
+      var rowState = row.getAttribute("data-state");   // 行自带状态，不依赖可能过期的全局 STATUS
+      Array.prototype.forEach.call(row.querySelectorAll("[data-act]"), function (b) {
+        var act = b.getAttribute("data-act");
+        b.onclick = function () {
+          if (act === "launch") plugLaunch(pid);
+          else if (act === "stop") plugStop(pid);
+          else if (act === "edit") location.hash = "#/import?resume=" + encodeURIComponent(pid);
+          else if (act === "relocate") relocate(pid);
+          else if (act === "toggle") {
+            fetch("/api/plugins/p/" + pid + "/" + (rowState === "disabled" ? "enable" : "disable"),
+              { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+              .then(function (r) { return r.json(); })
+              .then(function () { toast("已更新"); refreshStatus(); renderPlugins(); })
+              .catch(function () { toast("请求失败"); });
+          } else if (act === "remove") {
+            uiConfirm("移除这个插件？\n只删工具箱里的记录——你的软件不会被删除。").then(function (yes) {
+              if (!yes) return;
+              fetch("/api/plugins/p/" + pid + "/remove", { method: "POST",
+                headers: { "Content-Type": "application/json" }, body: "{}" })
+                .then(function () { toast("已移除"); refreshStatus(); renderPlugins(); })
+                .catch(function () { toast("请求失败"); });
+            });
+          }
+        };
+      });
+    });
+  }).catch(function () {
+    var box = document.getElementById("pluglist");
+    if (box) box.innerHTML = '<div class="empty">读取失败（桌面服务没响应）</div>';
+  });
+}
+
+/* ---------- 批量扫描导入 / 开始菜单挑选（阶段 B）---------- */
+function manifestNeeds(m) {
+  var joined = (((m.launch || {}).args || []).join(" ") + " " +
+                ((m.output || {}).dir || ""));
+  return {
+    file: /\{file(_dir|_stem)?\}/.test(joined),
+    folder: /\{folder\}/.test(joined),
+    text: /\{text\}/.test(joined),
+    args: (joined.match(/\{arg:([^}]+)\}/g) || []).map(function (s) { return s.slice(5, -1); })
+  };
+}
+var SCAN = { dir: "", items: null, done: null };
+function renderScan() {
+  var v = document.getElementById("view");
+  var head = '<div class="cathead"><h2>🗂 批量扫描导入</h2><span class="n">绿色软件目录一次全收</span></div>' +
+    '<button class="btn back" id="scanback">← 返回导入向导</button>';
+  if (!SCAN.items) {
+    v.innerHTML = head +
+      '<div class="wcard"><h3>扫描哪个目录？</h3>' +
+      '<div class="hint2">适合「绿色软件大本营」：一堆免安装小工具所在的文件夹。会列出里面的 exe / 快捷方式（含一层子目录），卸载器、安装器自动过滤。</div>' +
+      '<div class="wrow"><label>目录路径</label><input type="text" id="scandir" placeholder="例如 D:\\Tools" value="' + esc(SCAN.dir) + '">' +
+      '<button class="btn" id="scanbrowse">📁 浏览…</button>' +
+      '<button class="btn primary" id="scango">扫描 →</button></div>' +
+      '<div class="ms">导入只是登记路标，不会移动任何文件。</div></div>';
+    document.getElementById("scanback").onclick = function () { location.hash = "#/import"; };
+    document.getElementById("scango").onclick = scanGo;
+    document.getElementById("scandir").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") scanGo();
+    });
+    document.getElementById("scanbrowse").onclick = function () {
+      var bridge = window.pywebview && window.pywebview.api;
+      if (bridge && typeof bridge.pick_folder === "function") {
+        bridge.pick_folder().then(function (p) {
+          if (p) { document.getElementById("scandir").value = p; scanGo(); }
+        }).catch(function () {});
+      } else toast("当前窗口模式没有目录选择框——粘贴目录路径");
+    };
+    return;
+  }
+  if (SCAN.done) { scanRenderDone(v, head); return; }
+  var items = SCAN.items;
+  v.innerHTML = head +
+    '<div class="wcard"><h3>' + esc(SCAN.dir) + "</h3>" +
+    '<div class="hint2">扫到 ' + items.length + " 个可导入项。勾选要收进工具箱的（已过滤项默认不勾）：</div>" +
+    '<div class="wfoot" style="margin-top:0"><button class="btn" id="scanall">全选/全不选</button>' +
+    '<button class="btn primary" id="scanimport">导入勾选的 <b id="scann">0</b> 个</button>' +
+    '<span class="ms">进度和结果会显示在下面</span></div>' +
+    '<div style="max-height:52vh;overflow:auto;margin-top:10px">' +
+    items.map(function (i, idx) {
+      var sz = i.size > 1048576 ? (i.size / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(i.size / 1024)) + " KB";
+      return '<div class="checkline"' + (i.blocked ? ' style="opacity:.5"' : "") + ">" +
+        '<input type="checkbox" data-idx="' + idx + '"' + (i.blocked ? "" : " checked") + '>' +
+        "<div>" + esc(i.name) + ' <span class="ms">' + sz + "</span>" +
+        (i.blocked ? '<span class="tag warn" style="margin-left:6px">已过滤（卸载器/安装器类）</span>' : "") +
+        '<div class="ms" style="font-size:11.5px">' + esc(i.path) + "</div></div></div>";
+    }).join("") + "</div></div>";
+  document.getElementById("scanback").onclick = function () { location.hash = "#/import"; };
+  function recount() {
+    var n = 0;
+    Array.prototype.forEach.call(v.querySelectorAll("[data-idx]"), function (c) {
+      if (c.checked) n++;
+    });
+    document.getElementById("scann").textContent = n;
+  }
+  Array.prototype.forEach.call(v.querySelectorAll("[data-idx]"), function (c) {
+    c.addEventListener("change", recount);
+  });
+  recount();
+  document.getElementById("scanall").onclick = function () {
+    var anyOff = Array.prototype.some.call(v.querySelectorAll("[data-idx]"), function (c) { return !c.checked; });
+    Array.prototype.forEach.call(v.querySelectorAll("[data-idx]"), function (c) {
+      if (!SCAN.items[+c.getAttribute("data-idx")].blocked) c.checked = anyOff;
+    });
+    recount();
+  };
+  document.getElementById("scanimport").onclick = scanImport;
+}
+function scanGo() {
+  SCAN.dir = (document.getElementById("scandir").value || "").trim();
+  if (!SCAN.dir) { toast("先填目录路径"); return; }
+  toast("扫描中…");
+  fetch("/api/plugins/scan", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: SCAN.dir }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast(d.error || "扫描失败"); return; }
+      SCAN.items = d.items || [];
+      SCAN.done = null;
+      renderScan();
+    }).catch(function () { toast("扫描请求失败"); });
+}
+function scanImport() {
+  var picked = [];
+  Array.prototype.forEach.call(document.querySelectorAll("[data-idx]"), function (c) {
+    if (c.checked) picked.push(SCAN.items[+c.getAttribute("data-idx")]);
+  });
+  if (!picked.length) { toast("先勾选至少一个"); return; }
+  SCAN.done = { importing: picked.slice(), results: [] };
+  renderScan();
+  scanImportNext(0);
+}
+function scanImportNext(i) {
+  var st = SCAN.done;
+  if (i >= st.importing.length) { st.importing = []; renderScan(); return; }
+  var item = st.importing[i];
+  var box = document.getElementById("scanprogress");
+  if (box) box.textContent = "正在导入 " + (i + 1) + "/" + st.importing.length + "：" + item.name;
+  fetch("/api/plugins/probe", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: item.path }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var entry = { name: item.name, id: null, error: null };
+      if (d.ok) {
+        var m = d.manifest;
+        m.source = "scan";
+        return fetch("/api/plugins/commit", { method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ manifest: m, confirmed_launch: true,
+                                 icon_tmp: d.icon_tmp || "", allow_duplicate: true }) })
+          .then(function (r2) { return r2.json(); })
+          .then(function (d2) {
+            if (d2.ok) entry.id = d2.id;
+            else entry.error = d2.duplicate ? "重复，已跳过" : (d2.error || "保存失败");
+            st.results.push(entry);
+            scanImportNext(i + 1);
+          });
+      }
+      entry.error = d.duplicate ? "重复，已跳过" : (d.error || "识别失败");
+      st.results.push(entry);
+      scanImportNext(i + 1);
+    })
+    .catch(function () {
+      st.results.push({ name: item.name, id: null, error: "请求失败" });
+      scanImportNext(i + 1);
+    });
+}
+function scanRenderDone(v, head) {
+  var st = SCAN.done;
+  if (st.importing.length) {
+    v.innerHTML = head + '<div class="wcard"><h3>批量导入中…</h3><div class="ms" id="scanprogress"></div>' +
+      st.results.map(function (r) {
+        return '<div class="kv">' + esc(r.name) + " — " + (r.id ? "✓" : esc(r.error || "失败")) + "</div>";
+      }).join("") + "</div>";
+    return;
+  }
+  var okN = st.results.filter(function (r) { return r.id; }).length;
+  v.innerHTML = head +
+    '<div class="wcard"><h3>✅ 导入完成：' + okN + " 个进入工具箱</h3>" +
+    '<div class="hint2">顺手补一句话说明（不填也行——之后在「我的插件」里随时可以编辑）：</div>' +
+    st.results.map(function (r) {
+      return r.id
+        ? '<div class="paramrow"><label style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(r.name) + '">' + esc(r.name) + "</label>" +
+          '<input data-desc-id="' + esc(r.id) + '" placeholder="一句话说明它是干嘛的"></div>'
+        : '<div class="kv" style="opacity:.6">' + esc(r.name) + " — " + esc(r.error || "跳过") + "</div>";
+    }).join("") +
+    '<div class="wfoot"><button class="btn" id="scanskip">跳过，去工具箱看看</button>' +
+    '<button class="btn primary" id="scansave">保存说明</button></div></div>';
+  document.getElementById("scanback").onclick = function () { location.hash = "#/import"; };
+  document.getElementById("scanskip").onclick = function () {
+    SCAN.items = null; SCAN.done = null;
+    location.hash = "#/plugins"; refreshStatus();
+  };
+  document.getElementById("scansave").onclick = function () {
+    var rows = Array.prototype.map.call(v.querySelectorAll("[data-desc-id]"), function (el) {
+      return { id: el.getAttribute("data-desc-id"), desc: el.value.trim() };
+    }).filter(function (x) { return x.desc; });
+    var saveNext = function (i) {
+      if (i >= rows.length) {
+        toast("说明已保存"); SCAN.items = null; SCAN.done = null;
+        location.hash = "#/plugins"; refreshStatus(); PLUG_META = {};
+        return;
+      }
+      fetch("/api/plugins/p/" + encodeURIComponent(rows[i].id) + "/edit", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ desc: rows[i].desc }) })
+        .then(function () { saveNext(i + 1); })
+        .catch(function () { saveNext(i + 1); });
+    };
+    saveNext(0);
+  };
+}
+
+/* ---------- 开始菜单挑选（阶段 B）---------- */
+var SM = { items: null, q: "" };
+function renderStartmenu() {
+  var v = document.getElementById("view");
+  var head = '<div class="cathead"><h2>🧺 从开始菜单挑选</h2><span class="n">已安装软件的快捷方式都在这</span></div>' +
+    '<button class="btn back" id="smback">← 返回导入向导</button>';
+  if (SM.items === null) {
+    v.innerHTML = head + '<div class="wcard"><div class="skel"></div><div class="skel"></div></div>';
+    document.getElementById("smback").onclick = function () { location.hash = "#/import"; };
+    fetch("/api/plugins/startmenu").then(function (r) { return r.json(); }).then(function (d) {
+      SM.items = d.ok ? (d.items || []) : [];
+      renderStartmenu();
+    }).catch(function () {
+      SM.items = [];
+      renderStartmenu();
+    });
+    return;
+  }
+  var groups = {};
+  SM.items.forEach(function (it) { (groups[it.group || ""] = groups[it.group || ""] || []).push(it); });
+  var q = SM.q.toLowerCase();
+  var html = head + '<div class="wcard"><h3>点一个软件进入导入向导</h3>' +
+    '<div class="wrow"><label>过滤</label><input type="text" id="smq" placeholder="输入名字快速过滤（如：微信、Steam）" value="' + esc(SM.q) + '"></div>' +
+    '<div style="max-height:60vh;overflow:auto">';
+  Object.keys(groups).sort().forEach(function (g) {
+    var list = groups[g].filter(function (it) {
+      return !q || (it.name + " " + it.group).toLowerCase().indexOf(q) >= 0;
+    });
+    if (!list.length) return;
+    html += '<div class="navsec" style="padding-left:0">' + (g ? esc(g) : "「开始菜单」顶层") + " · " + list.length + "</div>" +
+      list.map(function (it) {
+        return '<div class="plugrow" data-smpath="' + esc(it.path) + '" style="cursor:pointer">' +
+          '<span style="flex:none">🔗</span><div class="pmain"><div class="pname">' + hi(it.name, SM.q) + "</div>" +
+          '<div class="pmeta"><span class="ms">' + esc(it.path) + "</span></div></div></div>";
+      }).join("");
+  });
+  html += (SM.items.length ? "" : '<div class="empty">开始菜单里没读到快捷方式（系统精简？）</div>') + "</div></div>";
+  v.innerHTML = html;
+  document.getElementById("smback").onclick = function () { location.hash = "#/import"; };
+  var qEl = document.getElementById("smq");
+  var t = null;
+  qEl.addEventListener("input", function () {
+    clearTimeout(t);
+    t = setTimeout(function () { SM.q = qEl.value.trim(); renderStartmenu(); }, 200);
+  });
+  Array.prototype.forEach.call(v.querySelectorAll("[data-smpath]"), function (row) {
+    row.onclick = function () {
+      W.path = row.getAttribute("data-smpath");
+      W.autoProbe = true;              // 回向导第 1 步后自动识别这个 .lnk
+      location.hash = "#/import";
+    };
+  });
+}
+
+/* ---------- 清单分享（阶段 C 一期）---------- */
+function exportShare(ids) {
+  fetch("/api/plugins/export", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: ids }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast(d.error || "导出失败"); return; }
+      var blob = new Blob([d.text], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "toolhub-plugins.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast("已导出 " + ids.length + " 个插件的清单——发给朋友，对方在「导入分享文件」里打开即可（不含任何运行记录）");
+    }).catch(function () { toast("导出请求失败"); });
+}
+function uiShareImport() {
+  return new Promise(function (resolve) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:5vh 24px 24px;overflow:auto;";
+    var stage1 = '<div style="margin-bottom:8px;font-weight:600;font-size:15px">📥 导入分享文件</div>' +
+      '<div class="ms" style="margin-bottom:10px">把别人导出的 toolhub-plugins.json 内容粘到下面，或直接选这个文件。导入前会先预检：看到每一条是什么、有没有冲突，确认了才落盘。</div>' +
+      '<textarea id="sharetext" style="width:100%;min-height:180px" placeholder=\'{"format": "toolhub-plugin-share", ...}\'></textarea>' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">' +
+      '<label class="btn" style="cursor:pointer">📂 选择分享文件<input type="file" id="sharefile" accept=".json,application/json" style="display:none"></label>' +
+      '<span class="spacer" style="flex:1"></span>' +
+      '<button class="btn" data-r="0">取消</button>' +
+      '<button class="btn primary" data-next="1">预检 →</button></div>';
+    wrap.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:720px;width:100%;box-shadow:var(--shadow-lg);padding:18px 20px;font-size:14px;color:var(--text)">' + stage1 + "</div>";
+    document.body.appendChild(wrap);
+    var closed = false;
+    function done(val) {
+      if (closed) return;
+      closed = true;
+      wrap.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    }
+    function onKey(e) { if (e.key === "Escape") done(null); }
+    document.addEventListener("keydown", onKey);
+    wrap.querySelector('[data-r="0"]').onclick = function () { done(null); };
+    var fileInput = wrap.querySelector("#sharefile");
+    fileInput.addEventListener("change", function () {
+      var f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () { wrap.querySelector("#sharetext").value = String(rd.result || ""); };
+      rd.readAsText(f, "utf-8");
+    });
+    wrap.querySelector('[data-next="1"]').onclick = function () {
+      var text = wrap.querySelector("#sharetext").value.trim();
+      if (!text) { toast("先粘贴分享内容或选择文件"); return; }
+      fetch("/api/plugins/import-preview", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) { toast(d.error || "预检失败"); return; }
+          renderSharePreview(wrap, d.items || [], done);
+        }).catch(function () { toast("预检请求失败"); });
+    };
+  });
+}
+function renderSharePreview(wrap, items, done) {
+  var rows = items.map(function (it, i) {
+    var m = it.manifest || {};
+    var status = "", checkable = !((it.errors || []).length);
+    var renameTo = "";
+    if ((it.errors || []).length) {
+      status = '<span class="tag warn">清单不合法：' + esc((it.errors || [])[0] || "") + "</span>";
+    } else if (it.conflict && it.conflict.type === "builtin") {
+      status = '<span class="tag warn">与内置工具撞名，无法导入</span>';
+      checkable = false;
+    } else if (it.conflict && it.conflict.type === "duplicate") {
+      status = '<span class="tag warn">与现有「' + esc(it.conflict.name || it.conflict.id) + '」重复</span>';
+    } else if (it.conflict && it.conflict.type === "id_taken") {
+      renameTo = m.id + "-shared";
+      status = '<span class="tag">ID 已被占用 → 将改名为 ' + esc(renameTo) + " 导入</span>";
+    } else {
+      status = it.exists ? '<span class="tag">✓ 这台电脑上目标存在</span>'
+        : '<span class="tag warn">目标路径不存在 → 导入后先「重新定位」</span>';
+    }
+    return '<div class="checkline"><input type="checkbox" data-si="' + i + '"' +
+      (checkable ? " checked" : " disabled") + (checkable ? "" : "") + '>' +
+      "<div><b>" + esc(m.name || "(无名)") + "</b> <span class='ms'>" +
+      esc(KIND_CN[m.kind] || m.kind || "") + "</span> " + status +
+      '<div class="ms" style="font-size:11.5px">' + esc((m.launch || {}).target || "") + "</div></div></div>";
+  }).join("");
+  var inner = wrap.firstElementChild;
+  inner.innerHTML = '<div style="margin-bottom:8px;font-weight:600;font-size:15px">预检结果（勾选要导入的）</div>' + rows +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+    '<button class="btn" data-back="1">← 返回重选</button>' +
+    '<button class="btn" data-cancel="1">取消</button>' +
+    '<button class="btn primary" data-go="1">导入选中的 <b id="sharen">0</b> 个</button></div>';
+  function recount() {
+    var n = 0;
+    Array.prototype.forEach.call(inner.querySelectorAll("[data-si]"), function (c) {
+      if (c.checked) n++;
+    });
+    var el = inner.querySelector("#sharen");
+    if (el) el.textContent = n;
+  }
+  Array.prototype.forEach.call(inner.querySelectorAll("[data-si]"), function (c) {
+    c.addEventListener("change", recount);
+  });
+  recount();
+  inner.querySelector("[data-cancel]").onclick = function () { done(null); };
+  inner.querySelector("[data-back]").onclick = function () {
+    done(null);                    // 先关当前，再重开一个干净的粘贴框
+    setTimeout(uiShareImport, 60);
+  };
+  inner.querySelector("[data-go]").onclick = function () {
+    var picked = [], rename = {};
+    Array.prototype.forEach.call(inner.querySelectorAll("[data-si]"), function (c) {
+      if (!c.checked) return;
+      var it = items[+c.getAttribute("data-si")];
+      var m = it.manifest;
+      picked.push(m);
+      if (it.conflict && it.conflict.type === "id_taken") {
+        rename[m.id] = m.id + "-shared";
+      }
+    });
+    if (!picked.length) { toast("先勾选至少一个"); return; }
+    fetch("/api/plugins/import", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: picked, rename: rename }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { toast(d.error || "导入失败"); return; }
+        var okN = (d.results || []).filter(function (r2) { return r2.ok; }).length;
+        var fails = (d.results || []).filter(function (r2) { return !r2.ok; });
+        toast("导入完成：" + okN + " 个成功" +
+              (fails.length ? "，" + fails.length + " 个失败（" +
+               fails.map(function (f) { return esc(f.error || "?"); }).join("；") + "）" : ""));
+        PLUG_META = {};
+        done(true);
+        refreshStatus();
+        renderRoute();
+      }).catch(function () { toast("导入请求失败"); });
+  };
+}
+
+
+var W = { step: 1, path: "", probe: null, manifest: null, iconTmp: "",
+          confirmed: false, editing: null, dupChoice: "", autoProbe: false, nameHint: "" };
+function renderWizard() {
+  var v = document.getElementById("view");
+  // 防丢字（与场景编辑器同因）：状态轮询触发重绘前，把 DOM 里的未提交输入
+  // 同步回 W/manifest——否则向导第 1/3/5/6 步填了一半会被清空（阶段 A 老问题）
+  if (W.manifest) {
+    var el = document.getElementById("wname");
+    if (el && el.value.trim()) W.manifest.name = el.value.trim();
+    var ab = document.getElementById("wargs");
+    if (ab) W.manifest.launch.args = ab.value.split("\n")
+      .map(function (s) { return s.trim(); }).filter(Boolean);
+    var sel = document.getElementById("wwindow");
+    if (sel) W.manifest.launch.window = sel.value;
+    var acc = document.getElementById("waccept");
+    if (acc && W.manifest.input) W.manifest.input.accept = acc.value;
+    ["welevate", "woneshot", "wconfirm"].forEach(function (id) {
+      var c = document.getElementById(id);
+      if (!c) return;
+      if (id === "welevate") W.manifest.launch.elevate = c.checked;
+      if (id === "woneshot") W.manifest.lifecycle.mode = c.checked ? "oneshot" : "gui";
+      if (id === "wconfirm") W.confirmed = c.checked;
+    });
+    var de = document.getElementById("wdesc");
+    if (de) W.manifest.desc = de.value;
+    var tg = document.getElementById("wtags");
+    if (tg) W._tagsDraft = tg.value;
+  }
+  var wp = document.getElementById("wpath");
+  if (wp && wp.value.trim()) W.path = wp.value.trim();
+  var resumeId = (location.hash.match(/resume=([^&]+)/) || [])[1];
+  if (resumeId && !W.editing && !W._resumeBlocked) {
+    W.editing = decodeURIComponent(resumeId);
+    W.step = 3;
+  }
+  if (W.editing && !W.manifest) {
+    // 失败保护：读不到清单（插件被删/服务断）就回第 1 步，绝不无限重试
+    if (W._resumeTried) {
+      W._resumeBlocked = true;
+      W.editing = null;
+      W.step = 1;
+      toast("没读到这个插件（可能已被移除）");
+      renderWizard();
+      return;
+    }
+    W._resumeTried = true;
+    fetch("/api/plugins").then(function (r) { return r.json(); }).then(function (d) {
+      var me = (d.plugins || []).filter(function (p) { return p.id === W.editing; })[0];
+      if (!me) { W.editing = null; W._resumeBlocked = true; W.step = 1; renderWizard(); return null; }
+      return fetch("/api/plugins/" + W.editing).then(function (r) { return r.json(); });
+    }).then(function (d) {
+      if (d && d.manifest) { W.manifest = d.manifest; W.iconTmp = ""; W._resumeBlocked = false; }
+      renderWizard();
+    }).catch(function () { W._resumeBlocked = true; W.editing = null; W.step = 1; renderWizard(); });
+    v.innerHTML = '<div class="cathead"><h2>✏️ 编辑插件</h2></div><div class="skel"></div>';
+    return;
+  }
+  var stepNames = ["选择", "识别", "启动方式", "试运行", "用途", "归类", "完成"];
+  var steps = '<div class="steps">' + stepNames.map(function (n, i) {
+    var cls = (i + 1) === W.step ? " on" : ((i + 1) < W.step ? " done" : "");
+    return '<span class="st' + cls + '">' + (i + 1) + ". " + n + "</span>";
+  }).join("") + "</div>";
+
+  var head = '<div class="cathead"><h2>' + (W.editing ? "✏️ 编辑插件" : "➕ 导入软件") +
+    '</h2><span class="n">导入只是记个路标，不会移动或修改你的软件</span></div>';
+  var body = "";
+  var foot = '<div class="wfoot"><button class="btn" id="wdraft">存草稿</button>' +
+    '<button class="btn" id="wback"' + (W.step <= 1 || (W.editing && W.step <= 3) ? " disabled" : "") + '>← 上一步</button>' +
+    '<span class="spacer"></span></div>';
+
+  if (W.step === 1) {
+    body = '<div class="wcard"><h3>选择要导入的软件</h3>' +
+      '<div class="hint2">支持：程序 exe、快捷方式、文件夹、网址、脚本（.py/.bat/.ps1）。导入只是登记，你的软件原地不动。</div>' +
+      '<div class="dropzone" id="wdrop">把<b>网页链接</b>从浏览器拖到这里可直接导入；本地文件受浏览器安全限制拿不到路径，请用「浏览」或粘贴</div>' +
+      '<div id="wdrophint" class="ms" style="margin:6px 0 0"></div>' +
+      '<div class="wrow" style="margin-top:14px"><label>软件路径</label><input type="text" id="wpath" placeholder="例如 D:\\Tools\\Snipaste\\Snipaste.exe  （可粘贴，或点右侧按钮选择）" value="' + esc(W.path) + '">' +
+      '<button class="btn" id="wbrowse">📁 浏览…</button>' +
+      '<button class="btn primary" id="wprobe">识别 →</button></div>' +
+      '<div class="ms">提示：资源管理器里选中文件，Shift+右键 → 复制文件地址，回来粘贴。从浏览器地址栏拖链接到上面的虚线框可以直接导入网址。</div>' +
+      '<div class="wrow" style="margin-top:14px"><label>批量入口</label>' +
+      '<button class="btn" id="wstartmenu">🧺 从开始菜单挑选</button>' +
+      '<button class="btn" id="wstoreapps">🛍 从商店应用挑选</button>' +
+      '<button class="btn" id="wscan">🗂 扫描整个目录批量导入</button>' +
+      '<span class="ms">已安装的藏在开始菜单/商店；绿色软件目录一次全收</span></div>' +
+      foot + "</div>";
+  } else if (W.step === 2) {
+    var p = W.probe || {};
+    body = '<div class="wcard"><h3>我认出来了</h3>' +
+      '<div class="preview-card"><div class="kv2"><b>类型</b>' + esc(p.kind_label || "") + "</div>" +
+      (p.manifest ? '<div class="kv2"><b>名称</b>' + esc(p.manifest.name) + "</div>" : "") +
+      (p.manifest && p.manifest.version ? '<div class="kv2"><b>版本</b>' + esc(p.manifest.version) + "</div>" : "") +
+      (p.manifest && p.manifest.publisher ? '<div class="kv2"><b>发行者</b>' + esc(p.manifest.publisher) + "</div>" : "") +
+      (p.icon_tmp ? '<div class="kv2"><b>图标</b>✓ 已从原软件提取（复制了一份画面，原文件没动）</div>' : "") +
+      "</div>" +
+      (p.errors && p.errors.length ? '<div class="envbanner">⚠ ' + p.errors.map(esc).join("；") + "</div>" : "") +
+      (p.duplicate ? '<div class="envbanner">这个软件已经在工具箱里了（' + esc(p.duplicate.name) + '）。<button class="btn" id="wdupmerge">更新已有插件的路径</button> <button class="btn" id="wdupnew">仍然另建一个</button></div>' : "") +
+      foot + "</div>";
+  } else if (W.step === 3) {
+    var m = W.manifest || {};
+    var lp = m.launch || {};
+    var isScript = m.kind === "script";
+    var interpLabel = { python: "Python", cmd: "cmd（批处理）", powershell: "PowerShell" }[lp.interpreter] || "";
+    body = '<div class="wcard"><h3>确认启动方式</h3>' +
+      '<div class="hint2">启动时，工具箱会替你做下面这件事——和你自己双击它完全一样。</div>' +
+      '<div class="preview-card" id="wpreview"></div>' +
+      '<div class="wrow"><label>显示名称</label><input type="text" id="wname" value="' + esc(m.name || "") + '"></div>' +
+      (isScript
+        ? '<div class="wrow"><label>解释器</label><span class="ms">' + esc(interpLabel) +
+          (lp.interpreter === "python" ? "（按 系统 Python → 工具箱自带 顺序自动寻找）" : "") + "</span></div>"
+        : "") +
+      ((m.kind === "exe" || isScript)
+        ? '<div class="wrow"><label>参数模板</label><textarea id="wargs" placeholder="每行一个参数。普通参数直接写；要每次启动时提供的东西用占位符（点下方按钮插入）&#10;例：-i 然后一行 {file}，再一行 {file_dir}\\压缩-{arg:质量}.mp4">' + esc((lp.args || []).join("\n")) + "</textarea></div>" +
+          '<div class="wrow"><label></label><span>' +
+          ["{file}", "{folder}", "{text}", "{file_dir}", "{file_stem}"].map(function (ph) {
+            return '<button class="btn" data-ph="' + ph + '">' + ph + "</button>";
+          }).join("") +
+          ' <input type="text" id="wargname" placeholder="自定义参数名" style="max-width:130px;padding:5px 8px;font-size:12.5px"><button class="btn" data-ph="{arg:名}">{arg:名}</button>' +
+          '</span></div>' +
+          '<div class="wrow"><label>启动时会问</label><select id="waccept">' +
+          [["none", "不需要输入（直接启动）"], ["file", "让我选一个文件"], ["folder", "让我选一个文件夹"], ["file+folder", "文件或文件夹都可能要"]].map(function (o) {
+            return '<option value="' + o[0] + '"' + (((m.input || {}).accept || "none") === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
+          }).join("") + "</select></div>"
+        : "") +
+      '<div class="wrow"><label>窗口</label><select id="wwindow"' + (m.kind === "store" ? " disabled" : "") + '>' +
+      ["normal", "minimized", "maximized", "hidden"].map(function (o) {
+        return '<option value="' + o + '"' + ((lp.window || "normal") === o ? " selected" : "") + ">" +
+          ({ normal: "正常", minimized: "启动即最小化", maximized: "最大化", hidden: "隐藏窗口（脚本推荐）" })[o] + "</option>";
+      }).join("") + "</select>" +
+      (m.kind === "store" ? '<span class="ms">商店应用由 Windows 决定窗口方式</span>' : "") + "</div>" +
+      (m.kind === "store" ? "" :
+        '<div class="checkline"><input type="checkbox" id="welevate"' + (lp.elevate ? " checked" : "") + '>' +
+        "<div>需要管理员权限才能运行（启动时 Windows 会弹一次确认窗——这是系统保护，工具箱不能跳过）</div></div>" +
+        '<div class="checkline"><input type="checkbox" id="woneshot"' + ((m.lifecycle || {}).mode === "oneshot" ? " checked" : "") + '>' +
+        "<div>这是一次性任务（跑完自动退出），帮我记录运行结果；关闭工具箱时如果它还在跑就一起结束</div></div>") +
+      ((m.lifecycle || {}).mode === "oneshot" && m.kind !== "store"
+        ? '<div class="checkline" style="margin-left:22px"><span class="ms">跑多久没结束就强制停：</span>' +
+          '<select id="wtimeout">' + [["0", "不限时"], ["60", "1 分钟"], ["300", "5 分钟"], ["600", "10 分钟"], ["3600", "1 小时"]].map(function (o) {
+            return '<option value="' + o[0] + '"' + (String((m.lifecycle || {}).timeout_sec || 0) === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
+          }).join("") + "</select></div>"
+        : "") +
+      '<div class="checkline"><input type="checkbox" id="wconfirm"' + (W.confirmed ? " checked" : "") + '>' +
+      "<div><b>我已看清上面的说明，确认这样启动</b>（勾选后才能进入下一步）</div></div>" +
+      foot + "</div>";
+  } else if (W.step === 4) {
+    var needs = manifestNeeds(W.manifest || {});
+    var needAny = needs.file || needs.folder || needs.text || (needs.args || []).length;
+    body = '<div class="wcard"><h3>试运行</h3>' +
+      '<div class="hint2">真启动一次看看效果。成功/失败都会告诉你下一步。</div>' +
+      (needAny ? '<div class="envbanner">这个插件的参数模板需要输入（' +
+        [needs.file ? "文件" : "", needs.folder ? "文件夹" : "", needs.text ? "文本" : "",
+         (needs.args || []).map(function (n) { return "参数「" + n + "」"; }).join("")].filter(Boolean).join("、") +
+        '）——点「▶ 试运行」会先让你填。</div>' : "") +
+      '<div id="wtestresult"></div>' +
+      '<div class="wfoot"><button class="btn primary" id="wtestbtn" style="font-size:15px;padding:9px 22px">▶ 试运行</button>' +
+      '<span class="ms">工具箱无法替你确认软件内部功能正常——看到它的窗口弹出来就是成功</span></div>' +
+      foot + "</div>";
+  } else if (W.step === 5) {
+    body = '<div class="wcard"><h3>它是干嘛的？</h3>' +
+      '<div class="hint2">一句话说明用途——这一步是为了以后搜得到（搜索框和 Ctrl+K 都会用到）。</div>' +
+      '<div class="wrow"><label>用途说明</label><textarea id="wdesc" placeholder="例：把大视频压小，输出到同文件夹">' + esc((W.manifest || {}).desc || "") + "</textarea></div>" +
+      '<div class="ms">示例：「批量把照片缩小到 1080 宽」「连上公司内网的工具」</div>' + foot + "</div>";
+  } else if (W.step === 6) {
+    var cats = (CATS.indexOf("我的插件") >= 0 ? CATS : CATS.concat(["我的插件"]));
+    var curCat = ((W.manifest || {}).display || {}).category || "";
+    body = '<div class="wcard"><h3>归类与图标</h3>' +
+      '<div class="wrow"><label>分类</label><select id="wcat">' +
+      cats.map(function (c) { return '<option' + (c === curCat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") +
+      '<option value="__new">新建分类…</option></select>' +
+      '<input type="text" id="wcatnew" placeholder="新分类名" style="display:none;max-width:200px"></div>' +
+      '<div class="wrow"><label>标签</label><input type="text" id="wtags" placeholder="逗号分隔，例：截图, 贴图" value="' + esc(W._tagsDraft != null ? W._tagsDraft : ((((W.manifest || {}).display || {}).tags || []).join(", "))) + '"></div>' +
+      '<div class="ms">图标：' + (W.iconTmp ? "✓ 已从原软件提取" : "将使用字母占位图标（之后可换）") + "</div>" +
+      foot + "</div>";
+  } else if (W.step === 7) {
+    body = '<div class="wcard"><h3>✅ 完成！</h3>' +
+      '<div class="hint2">「' + esc((W.manifest || {}).name || "") + '」已进入工具箱，和内置工具一样可以搜索、收藏、启动。</div>' +
+      '<div class="wfoot"><button class="btn primary" id="wagain">立即再试一次</button>' +
+      '<button class="btn" id="wgo">打开工具箱看看</button></div></div>';
+  }
+  v.innerHTML = head + steps + body;
+  wizardBind();
+}
+
+function wizardBind() {
+  var back = document.getElementById("wback");
+  if (back) back.onclick = function () { if (W.step > 1) { W.step--; W.confirmed = (W.step >= 3 && W.confirmed); renderWizard(); } };
+  var draft = document.getElementById("wdraft");
+  if (draft) draft.onclick = function () { wizardCollect(true); };
+  if (W.step === 1) {
+    var goProbe = function () {
+      W.path = (document.getElementById("wpath").value || "").trim();
+      if (!W.path) { toast("先填一个路径"); return; }
+      toast("识别中…");
+      fetch("/api/plugins/probe", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: W.path, name_hint: W.nameHint || "" }) })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) { toast(d.error || "识别失败"); return; }
+          W.probe = d; W.manifest = d.manifest; W.iconTmp = d.icon_tmp || "";
+          W.dupChoice = ""; W.confirmed = false; W.nameHint = "";
+          W.step = 2; renderWizard();
+        })
+        .catch(function () { toast("识别请求失败"); });
+    };
+    document.getElementById("wbrowse").onclick = function () {
+      var bridge = window.pywebview && window.pywebview.api;
+      if (bridge && typeof bridge.pick_file === "function") {
+        bridge.pick_file().then(function (p) {
+          if (p) { document.getElementById("wpath").value = p; goProbe(); }
+        }).catch(function () {});
+      } else {
+        toast("当前窗口模式没有文件选择框——请直接粘贴路径");
+      }
+    };
+    document.getElementById("wprobe").onclick = goProbe;
+    document.getElementById("wpath").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") goProbe();
+    });
+    document.getElementById("wstartmenu").onclick = function () { location.hash = "#/startmenu"; };
+    document.getElementById("wstoreapps").onclick = function () { location.hash = "#/storeapps"; };
+    document.getElementById("wscan").onclick = function () { location.hash = "#/scan"; };
+    // 拖放：链接/文本路径可用（浏览器把文本给网页）；本地文件只有文件名 → 引导用浏览。
+    // WebView2(Chromium) 出于安全不把本地文件绝对路径交给 DOM（阶段 A 已实证，此为定论）。
+    var dz = document.getElementById("wdrop");
+    ["dragover", "dragenter"].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); dz.style.borderColor = "var(--accent)"; });
+    });
+    dz.addEventListener("dragleave", function () { dz.style.borderColor = ""; });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      dz.style.borderColor = "";
+      var hint = document.getElementById("wdrophint");
+      var f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f && f.name) {
+        hint.innerHTML = "✋ 收到「" + esc(f.name) + "」——但浏览器内核出于安全不把本地文件的完整路径给网页。" +
+          "点「📁 浏览」选中同一个文件（会直接跳到下一步），或用 Shift+右键复制文件地址后粘贴到上面输入框。";
+        toast("收到 " + f.name + "，但拿不到完整路径——请点「浏览」选中它");
+        return;
+      }
+      var text = (e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain") || "")
+        .split(/\r?\n/)[0].trim();
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) {
+        document.getElementById("wpath").value = text;
+        hint.textContent = "收到链接，识别中…";
+        goProbe();
+      } else if (/^[a-z]:[\\\/]/i.test(text)) {
+        document.getElementById("wpath").value = text;
+        hint.textContent = "收到路径，识别中…";
+        goProbe();
+      } else {
+        hint.textContent = "没识别出链接或路径——手动粘贴到输入框也行";
+      }
+    });
+    if (W.autoProbe && W.path) { W.autoProbe = false; goProbe(); }
+  } else if (W.step === 2) {
+    var merge = document.getElementById("wdupmerge");
+    if (merge) merge.onclick = function () {
+      var pid = W.probe.duplicate.id;
+      relocate(pid, W.path);
+      W.step = 1; renderWizard();
+    };
+    var dupnew = document.getElementById("wdupnew");
+    if (dupnew) dupnew.onclick = function () {
+      W.manifest.id = W.manifest.id + "-" + Math.random().toString(36).slice(2, 6);
+      W.probe.duplicate = null;
+      W.step = 3; renderWizard();
+    };
+    var next2 = document.createElement("div");
+    if (!W.probe || !(W.probe.errors || []).length) {
+      var f2 = document.querySelector("#view .wfoot");
+      if (f2) {
+        var b2 = document.createElement("button");
+        b2.className = "btn primary"; b2.textContent = "下一步：确认启动方式 →";
+        b2.onclick = function () { W.step = 3; renderWizard(); };
+        f2.appendChild(b2);
+      }
+    }
+  } else if (W.step === 3) {
+    var m = W.manifest;
+    function refreshPreview() {
+      m.name = document.getElementById("wname").value.trim() || m.name;
+      var wSel = document.getElementById("wwindow");
+      if (wSel && !wSel.disabled) m.launch.window = wSel.value;
+      var elE = document.getElementById("welevate");
+      if (elE) m.launch.elevate = elE.checked;
+      var elO = document.getElementById("woneshot");
+      if (elO) {
+        m.lifecycle.mode = elO.checked ? "oneshot" : "gui";
+        if (m.lifecycle.mode === "oneshot") m.lifecycle.close_with_hub = true;
+      }
+      var tSel = document.getElementById("wtimeout");
+      if (tSel) m.lifecycle.timeout_sec = parseInt(tSel.value, 10) || 0;
+      var aSel = document.getElementById("waccept");
+      if (aSel) m.input = m.input || {}, m.input.accept = aSel.value;
+      W.confirmed = document.getElementById("wconfirm").checked;
+      var argsBox = document.getElementById("wargs");
+      if (argsBox) m.launch.args = argsBox.value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      var accept = (m.input || {}).accept || "none";
+      var pv = document.getElementById("wpreview");
+      pv.innerHTML = '<div class="kv2"><b>将运行</b>' + esc(m.launch.target) +
+        (m.kind === "script" && m.launch.interpreter ? "（" + esc(m.launch.interpreter) + " 解释）" : "") + "</div>" +
+        '<div class="kv2"><b>工作目录</b>' + esc(m.launch.workdir || "{target_dir}") + "</div>" +
+        '<div class="kv2"><b>参数</b>' + ((m.launch.args || []).length ? esc(m.launch.args.join("  ")) : "无") + "</div>" +
+        (accept !== "none" || /\{(file|folder|text|arg:)/.test((m.launch.args || []).join(" "))
+          ? '<div class="kv2"><b>启动时会问你</b>' +
+            (accept.indexOf("file") >= 0 ? "选文件 " : "") +
+            (accept.indexOf("folder") >= 0 ? "选文件夹 " : "") +
+            "（参数里 " + esc("{file}/{folder}/{text}/{arg:名}") + " 的值每次启动时填）</div>" : "") +
+        '<div class="kv2"><b>窗口</b>' + ({ normal: "正常", minimized: "启动即最小化", maximized: "最大化", hidden: "隐藏" })[m.launch.window] + "</div>" +
+        (m.launch.elevate ? '<div class="kv2"><b>权限</b>🛡 需要管理员（每次启动 Windows 会确认一次）</div>' : "") +
+        (m.lifecycle.mode === "oneshot" ? '<div class="kv2"><b>运行方式</b>一次性任务（记录退出结果，随工具箱退出' +
+          (m.lifecycle.timeout_sec ? "，" + m.lifecycle.timeout_sec + " 秒没跑完就停" : "") + "）</div>" : "");
+    }
+    ["wname", "wwindow", "welevate", "woneshot", "wconfirm", "wargs", "waccept", "wtimeout"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener("change", refreshPreview);
+      if (el && el.tagName === "INPUT" && el.type === "text") el.addEventListener("input", refreshPreview);
+    });
+    refreshPreview();
+    // 占位符快捷插入：点按钮把占位符追加到参数模板（自定义名取输入框，空则提示）
+    Array.prototype.forEach.call(document.querySelectorAll("[data-ph]"), function (b) {
+      b.onclick = function () {
+        var box = document.getElementById("wargs");
+        if (!box) return;
+        var ph = b.getAttribute("data-ph");
+        if (ph === "{arg:名}") {
+          var nm = (document.getElementById("wargname").value || "").trim();
+          if (!nm) { toast("先在右边输入框里填一个参数名（如：质量）"); return; }
+          ph = "{arg:" + nm + "}";
+        }
+        box.value += (box.value && !box.value.endsWith("\n") ? "\n" : "") + ph;
+        box.dispatchEvent(new Event("change"));
+        box.focus();
+      };
+    });
+    var f3 = document.querySelector("#view .wfoot");
+    if (f3) {
+      var b3 = document.createElement("button");
+      b3.className = "btn primary"; b3.textContent = "下一步：试运行 →";
+      b3.onclick = function () {
+        refreshPreview();
+        if (!W.confirmed) { toast("先勾选「我已看清上面的说明，确认这样启动」"); return; }
+        m.trust = m.trust || {}; m.trust.confirmed_launch = true;
+        W.step = 4; renderWizard();
+      };
+      f3.appendChild(b3);
+    }
+  } else if (W.step === 4) {
+    document.getElementById("wtestbtn").onclick = function () {
+      var box = document.getElementById("wtestresult");
+      var fire = function (inputs) {
+        box.innerHTML = '<div class="ms">启动中…</div>';
+        fetch("/api/plugins/test", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ manifest: W.manifest, inputs: inputs || undefined }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            box.innerHTML = d.ok
+              ? '<div class="envbanner" style="border-color:var(--ok);color:var(--ok);background:transparent">✅ 已启动——它的窗口应该已经出现了。</div>'
+              : '<div class="envbanner">❌ 没能启动：' + esc(d.error || "未知原因") + '<br>下一步：检查路径是否正确，或回上一步调整。</div>';
+          })
+          .catch(function () { box.innerHTML = '<div class="envbanner">请求失败（桌面服务没响应）</div>'; });
+      };
+      var needs = manifestNeeds(W.manifest || {});
+      if (needs.file || needs.folder || needs.text || (needs.args || []).length) {
+        uiInputsForm(needs, "试运行需要输入").then(function (inputs) {
+          if (inputs) fire(inputs);
+        });
+      } else {
+        fire(null);
+      }
+    };
+    var f4 = document.querySelector("#view .wfoot");
+    if (f4) {
+      var b4 = document.createElement("button");
+      b4.className = "btn primary"; b4.textContent = W.editing ? "下一步：确认修改 →" : "下一步：填用途 →";
+      b4.onclick = function () { W.step = 5; renderWizard(); };
+      f4.appendChild(b4);
+    }
+  } else if (W.step === 5) {
+    var f5 = document.querySelector("#view .wfoot");
+    if (f5) {
+      var b5 = document.createElement("button");
+      b5.className = "btn primary"; b5.textContent = "下一步：归类 →";
+      b5.onclick = function () {
+        W.manifest.desc = document.getElementById("wdesc").value.trim();
+        W.step = 6; renderWizard();
+      };
+      f5.appendChild(b5);
+    }
+  } else if (W.step === 6) {
+    var catSel = document.getElementById("wcat");
+    var catNew = document.getElementById("wcatnew");
+    catSel.addEventListener("change", function () {
+      catNew.style.display = catSel.value === "__new" ? "" : "none";
+    });
+    var f6 = document.querySelector("#view .wfoot");
+    if (f6) {
+      var b6 = document.createElement("button");
+      b6.className = "btn primary"; b6.textContent = "✓ 完成导入";
+      b6.onclick = function () {
+        W.manifest.display.category = catSel.value === "__new"
+          ? (catNew.value.trim() || "我的插件") : catSel.value;
+        W.manifest.display.tags = document.getElementById("wtags").value
+          .split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+        wizardCollect(false);
+      };
+      f6.appendChild(b6);
+    }
+  } else if (W.step === 7) {
+    document.getElementById("wagain").onclick = function () {
+      plugLaunch(W.manifest.id); W.step = 4; renderWizard();
+    };
+    document.getElementById("wgo").onclick = function () { wizardReset(); location.hash = "#/plugins"; };
+  }
+}
+function wizardCollect(draft) {
+  fetch("/api/plugins/commit", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ manifest: W.manifest, draft: draft,
+      confirmed_launch: !draft, icon_tmp: W.iconTmp, allow_duplicate: true }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast(d.error || "保存失败"); return; }
+      PLUG_META = {};          // 清单变了，needs_inputs 缓存作废
+      if (draft) { toast("草稿已保存（在「我的插件」里可以继续）"); wizardReset(); location.hash = "#/plugins"; return; }
+      if (W.editing) { toast("修改已保存"); wizardReset(); location.hash = "#/plugins"; refreshStatus(); return; }
+      W.step = 7; renderWizard(); refreshStatus();
+    })
+    .catch(function () { toast("保存请求失败"); });
+}
+function wizardReset() {
+  W.step = 1; W.path = ""; W.probe = null; W.manifest = null;
+  W.iconTmp = ""; W.confirmed = false; W.editing = null; W.dupChoice = "";
+  W._resumeTried = false; W._resumeBlocked = false; W.nameHint = ""; W._tagsDraft = null;
+}
+function renderRoute() {
+  clearInterval(logTimer);
+  var hash = location.hash || "#/";
+  renderNav();
+  if (hash.indexOf("#/tool/") === 0) {
+    var parts = hash.split("/");
+    renderDetail(decodeURIComponent(parts[2] || ""));
+  } else if (hash === "#/env") renderEnv();
+  else if (hash === "#/settings") renderSettings();
+  else if (hash.indexOf("#/scenes") === 0) renderScenes();
+  else if (hash.indexOf("#/scene-edit") === 0) renderSceneEdit();
+  else if (hash.indexOf("#/plugins") === 0) renderPlugins();
+  else if (hash === "#/scan") renderScan();
+  else if (hash === "#/startmenu") renderStartmenu();
+  else if (hash === "#/storeapps") renderStoreApps();
+  else if (hash.indexOf("#/import") === 0) renderWizard();
+  else renderHome();
+}
+window.addEventListener("hashchange", renderRoute);
+
+/* ================= 状态轮询 ================= */
+var lastSig = null;
+var failStreak = 0;   // 连续失败次数：≥2 判定服务断开，插醒目横幅
+function ensureDownBanner(show) {
+  var old = document.getElementById("downbanner");
+  if (show && !old) {
+    var b = document.createElement("div");
+    b.id = "downbanner";
+    b.className = "envbanner";
+    b.style.cssText = "border-color:var(--bad-border);background:var(--bad-bg);color:var(--bad);position:sticky;top:0;z-index:40";
+    b.innerHTML = "✗ <b>桌面服务断开了</b>——页面上的按钮暂时都点不动。最常见原因：工具箱窗口被关闭。" +
+      "怎么办：重新双击桌面上的 ToolHub 图标；服务恢复后本提示会自动消失。" +
+      ' <button class="btn" id="downretry" style="margin-left:auto">重试连接</button>';
+    var view = document.getElementById("view");
+    view.parentNode.insertBefore(b, view);
+    document.getElementById("downretry").onclick = function () { refreshStatus(); };
+  } else if (!show && old) {
+    old.remove();
+  }
+}
+function statusSig() {
+  return TOOLS.map(function (t) {
+    var s = STATUS[t.id] || {};
+    return t.id + ":" + (s.online ? 1 : 0) + ":" + (s.note || "") + ":" +
+      (s.plugin_state || "") + ":" + (s.running ? 1 : 0);
+  }).join("|");
+}
+function refreshStatus() {
+  fetch("/api/status").then(function (r) { return r.json(); }).then(function (d) {
+    failStreak = 0;
+    ensureDownBanner(false);
+    var n = 0;
+    (d.status || []).forEach(function (s) {
+      STATUS[s.id] = s;
+      // 顶栏计数=真的在运行：内置工具看在线，插件看 running（"可用"不算运行中）
+      if (s.plugin_state) { if (s.running) n++; }
+      else if (s.online) n++;
+    });
+    document.getElementById("netstat").innerHTML = "<b>" + n + "</b> / " + TOOLS.length + " 运行中";
+    document.getElementById("sidefoot").innerHTML = "<b>" + n + "</b> / " + TOOLS.length + " 运行中 · 数据全部在本机";
+    var sig = statusSig();
+    if (sig !== lastSig) { lastSig = sig; renderRoute(); }
+    else {
+      (d.status || []).forEach(function (s) {
+        var el = document.querySelector('[data-ms="' + s.id + '"]');
+        if (el) el.textContent = s.online ? (s.ms || 0) + "ms" : "";
+      });
+    }
+  }).catch(function () {
+    failStreak++;
+    if (failStreak >= 2) ensureDownBanner(true);
+    document.getElementById("netstat").textContent = "桌面服务没响应";
+  });
+}
+
+/* ================= 联邦搜索 ================= */
+var searchSeq = 0;
+function itemHtml(it, q) {
+  var thumb = it.url ? '<img class="rthumb" loading="lazy" src="' + esc(it.url) + '" onerror="this.style.display=\'none\'">' : "";
+  var extra = [];
+  if (it.extra) extra.push(esc(it.extra));
+  if (it.when) extra.push(esc(relTime(it.when)));
+  var act = it.detail_url ? "detail" : (it.image_url ? "image" : (it.open_url ? "tool" : null));
+  var cls = act ? ' link" data-act="' + act + '" data-href="' + esc(it.detail_url || it.image_url || it.open_url) + '" data-title="' + esc(it.title) : "";
+  return '<div class="ritem' + cls + '">' + thumb +
+    '<div class="rmain"><div class="rtitle">' + hi(it.title, q) + "</div>" +
+    (it.snippet ? '<div class="rsnip">' + hi(it.snippet, q) + "</div>" : "") +
+    (extra.length ? '<div class="rmeta">' + extra.join("<span>·</span>") + "</div>" : "") +
+    "</div></div>";
+}
+function mdRender(src) {
+  function inline(s) {
+    return s.replace(/`([^`]+)`/g, function (_, c) { return "<code>" + c + "</code>"; })
+            .replace(/\*\*([^*]+)\*\*/g, function (_, c) { return "<strong>" + c + "</strong>"; });
+  }
+  var out = [], inUl = false;
+  esc(src).split(/\r?\n/).forEach(function (ln) {
+    var h = ln.match(/^(#{1,4})\s+(.*)$/);
+    if (h) {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      out.push("<h" + (h[1].length + 1) + ">" + inline(h[2]) + "</h" + (h[1].length + 1) + ">");
+    } else if (/^\s*[-*]\s+/.test(ln)) {
+      if (!inUl) { out.push("<ul>"); inUl = true; }
+      out.push("<li>" + inline(ln.replace(/^\s*[-*]\s+/, "")) + "</li>");
+    } else {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (ln.trim()) out.push("<p>" + inline(ln) + "</p>");
+    }
+  });
+  if (inUl) out.push("</ul>");
+  return out.join("");
+}
+function bindResults(scope, closeAfter) {
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-act]"), function (el) {
+    el.onclick = function () {
+      var act = el.getAttribute("data-act");
+      var href = el.getAttribute("data-href");
+      if (closeAfter) palClose();
+      if (act === "image") {
+        var v = document.getElementById("view");
+        v.innerHTML = '<button class="btn back" onclick="history.back()">← 返回</button>' +
+          '<img class="rthumb" style="width:auto;height:auto;max-width:100%;max-height:72vh;display:block;margin:10px auto" src="' + esc(href) + '" alt="">';
+        window.scrollTo(0, 0);
+      } else if (act === "tool") {
+        if (SHELL) window.location.href = href;  // 壳内导航
+        else window.open(href, "_blank");
+      } else {
+        fetch(href).then(function (r) { return r.json(); }).then(function (d) {
+          var title = d.title || d.name || "详情";
+          var body = d.content != null ? mdRender(d.content) : esc(d.snippet || d.ocr_text || JSON.stringify(d, null, 2));
+          var v = document.getElementById("view");
+          v.innerHTML = '<button class="btn back" onclick="history.back()">← 返回</button>' +
+            '<div class="panel"><h4>' + esc(title) + "</h4><div>" + body + "</div></div>";
+          window.scrollTo(0, 0);
+        }).catch(function () { toast("详情加载失败（工具可能已离线）"); });
+      }
+    };
+  });
+}
+function doSearch(q) {
+  var seq = ++searchSeq;
+  var v = document.getElementById("view");
+  var needle = q.toLowerCase();
+  var nameHits = TOOLS.filter(function (t) {
+    var hay = t.name + " " + t.desc + " " + t.category +
+      ((t.kind === "plugin" && t.aliases) ? " " + t.aliases.join(" ") : "");
+    return hay.toLowerCase().indexOf(needle) >= 0;
+  });
+  var html = "";
+  if (nameHits.length) {
+    html += '<div class="qtools">' + nameHits.slice(0, 8).map(function (t) {
+      return '<button class="btn" data-goto="' + esc(t.id) + '">' + esc(t.icon + " " + t.name) + "</button>";
+    }).join("") + "</div>";
+  }
+  html += '<div id="results"><div class="rgroup"><div class="ghead"><b>跨工具搜索中…</b></div>' +
+    '<div class="skel"></div><div class="skel"></div></div></div>';
+  v.innerHTML = html;
+  Array.prototype.forEach.call(v.querySelectorAll("[data-goto]"), function (b) {
+    b.onclick = function () { location.hash = "#/tool/" + b.getAttribute("data-goto"); };
+  });
+  fetch("/api/federated?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (d) {
+    if (seq !== searchSeq) return;
+    var q2 = d.q || q;
+    var box = document.getElementById("results");
+    var html2 = (d.groups || []).map(function (g) {
+      var head;
+      if (g.ok === true) head = "<b>" + esc(g.name) + '</b><span class="cnt">命中 ' + g.count + " 条</span>";
+      else if (g.ok === false) head = "<b>" + esc(g.name) + '</span><span class="err">' + esc(g.error || "不可用") + "</span>";
+      else head = "<b>" + esc(g.name) + "</b>";
+      var t = toolById(g.id);
+      var link = t ? ' <a href="#/tool/' + esc(t.id) + '">打开工具 ↗</a>' : "";
+      var items = g.ok === true && g.items.length
+        ? g.items.map(function (it) { return itemHtml(it, q2); }).join("")
+        : (g.ok === true ? '<div class="empty">该工具没有命中</div>' : "");
+      return '<div class="rgroup"><div class="ghead">' + head + link + "</div>" + items + "</div>";
+    }).join("");
+    box.innerHTML = html2 || '<div class="empty">没有结果</div>';
+    bindResults(box);
+  }).catch(function () {
+    if (seq !== searchSeq) return;
+    var box = document.getElementById("results");
+    if (box) box.innerHTML = '<div class="empty">搜索请求失败</div>';
+  });
+}
+
+/* ================= 命令面板 ================= */
+var palItems = [], palSel = 0, palSeq = 0;
+function palActions() {
+  var acts = [];
+  TOOLS.forEach(function (t) {
+    var online = isOnline(t.id);
+    acts.push({ icon: t.icon || "🧰", label: "打开 " + t.name, hint: t.category,
+      run: function () { if (SHELL) openEmbed(t.id, true); else window.open(t.url, "_blank", "noopener"); } });
+    acts.push({ icon: "📄", label: t.name + " · 详情", hint: "用途/参数/日志",
+      run: function () { location.hash = "#/tool/" + t.id; } });
+    if (!online) acts.push({ icon: "▶️", label: "启动 " + t.name, hint: "后台静默",
+      run: function () { palClose(); launch(t.id); } });
+    if (online) acts.push({ icon: "⏹️", label: "停止 " + t.name, hint: "结束进程",
+      run: function () { palClose(); stopTool(t.id); } });
+  });
+  acts.push({ icon: "🩺", label: "环境自检", hint: "哪些能用/怎么配", run: function () { location.hash = "#/env"; } });
+  acts.push({ icon: "⚙️", label: "设置", hint: "主题/备份", run: function () { location.hash = "#/settings"; } });
+  acts.push({ icon: "🎨", label: "切换主题", hint: "自动→亮→暗", run: cycleTheme });
+  acts.push({ icon: "🔄", label: "立即刷新状态", hint: "全部工具", run: function () { refreshStatus(); toast("已刷新"); } });
+  SCENES.forEach(function (s) {
+    acts.push({ icon: s.icon || "🎬", label: "启动场景 " + s.name,
+                hint: "一键开一整组（" + (s.items || []).length + " 项）",
+                run: function () { palClose(); location.hash = "#/scenes"; setTimeout(function () { sceneLaunchFlow(s.id); }, 350); } });
+  });
+  return acts;
+}
+function palFilter(q) {
+  var actionsOnly = q.charAt(0) === ">";
+  if (actionsOnly) q = q.slice(1).trim();
+  var acts = palActions();
+  if (q) {
+    var needle = q.toLowerCase();
+    acts = acts.filter(function (a) {
+      return (a.label + " " + a.hint).toLowerCase().indexOf(needle) >= 0;
+    });
+  }
+  return { acts: acts, actionsOnly: actionsOnly, q: actionsOnly ? "" : q };
+}
+function palRender(q) {
+  var f = palFilter(q);
+  palItems = f.acts.map(function (a) { return { type: "act", a: a }; });
+  var html = f.acts.map(function (a, i) {
+    return '<div class="pitem' + (i === 0 ? " sel" : "") + '" data-i="' + i + '">' +
+      '<span class="picon">' + esc(a.icon) + '</span><span class="plabel">' + hi(a.label, f.q) +
+      '</span><span class="phint">' + esc(a.hint) + "</span></div>";
+  }).join("");
+  if (!f.actionsOnly && f.q) html += '<div class="psec">跨工具搜索…</div><div id="presults"></div>';
+  var list = document.getElementById("plist");
+  list.innerHTML = html || '<div class="pempty">没有匹配的命令</div>';
+  palSel = palItems.length ? 0 : -1;
+  Array.prototype.forEach.call(list.querySelectorAll(".pitem"), function (el) {
+    el.onclick = function () { palRun(parseInt(el.getAttribute("data-i"), 10)); };
+  });
+  if (!f.actionsOnly && f.q) palFetchResults(f.q);
+}
+function palFetchResults(q) {
+  var seq = ++palSeq;
+  setTimeout(function () {
+    if (seq !== palSeq) return;
+    fetch("/api/federated?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (d) {
+      if (seq !== palSeq) return;
+      var box = document.getElementById("presults");
+      if (!box) return;
+      var any = false;
+      var html = (d.groups || []).map(function (g) {
+        if (g.ok !== true || !g.items.length) return "";
+        any = true;
+        return '<div class="psec">' + esc(g.name) + " · 命中 " + g.count + " 条</div>" +
+          g.items.slice(0, 3).map(function (it) { return itemHtml(it, q); }).join("");
+      }).join("");
+      box.innerHTML = any ? html : '<div class="pempty">工具里也没有命中</div>';
+      bindResults(box, true);
+    }).catch(function () {});
+  }, 250);
+}
+function palRun(i) {
+  var item = palItems[i];
+  if (!item) return;
+  palClose();
+  item.a.run();
+}
+function palMove(delta) {
+  var els = document.querySelectorAll("#plist .pitem");
+  if (!els.length) return;
+  els[palSel] && els[palSel].classList.remove("sel");
+  palSel = (palSel + delta + els.length) % els.length;
+  els[palSel].classList.add("sel");
+  els[palSel].scrollIntoView({ block: "nearest" });
+}
+function palOpen() {
+  document.getElementById("pal").classList.remove("hidden");
+  var p = document.getElementById("pinput");
+  p.value = "";
+  palRender("");
+  p.focus();
+}
+function palClose() {
+  document.getElementById("pal").classList.add("hidden");
+  palSeq++;
+}
+
+/* ================= 事件绑定与启动 ================= */
+var qi = document.getElementById("q");
+var qclear = document.getElementById("qclear");
+var searchTimer = null;
+qi.addEventListener("search", function () { var v = qi.value.trim(); if (v) doSearch(v); });
+qi.addEventListener("keydown", function (e) { if (e.key === "Enter") { var v = qi.value.trim(); if (v) doSearch(v); } });
+qi.addEventListener("input", function () {
+  var v = qi.value.trim();
+  qclear.classList.toggle("hidden", !qi.value);
+  clearTimeout(searchTimer);
+  if (!v) { searchSeq++; renderRoute(); return; }
+  searchTimer = setTimeout(function () { doSearch(v); }, 300);
+});
+qclear.onclick = function () { qi.value = ""; qi.dispatchEvent(new Event("input")); qi.focus(); };
+
+var pinput = document.getElementById("pinput");
+pinput.addEventListener("input", function () { palRender(pinput.value); });
+pinput.addEventListener("keydown", function (e) {
+  if (e.key === "ArrowDown") { e.preventDefault(); palMove(1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); palMove(-1); }
+  else if (e.key === "Enter") { e.preventDefault(); palRun(palSel); }
+});
+document.getElementById("pal").addEventListener("click", function (e) {
+  if (e.target === this) palClose();
+});
+document.getElementById("palbtn").onclick = palOpen;
+document.getElementById("themebtn").onclick = cycleTheme;
+document.getElementById("burger").onclick = function () {
+  document.getElementById("side").classList.toggle("open");
+};
+document.addEventListener("keydown", function (e) {
+  if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "k") {
+    e.preventDefault();
+    var pal = document.getElementById("pal");
+    if (pal.classList.contains("hidden")) palOpen(); else palClose();
+    return;
+  }
+  var palOpenNow = !document.getElementById("pal").classList.contains("hidden");
+  if (e.key === "Escape") {
+    if (palOpenNow) palClose();
+    else if (qi.value) { qi.value = ""; qi.dispatchEvent(new Event("input")); }
+    else if (location.hash.indexOf("#/tool/") === 0) location.hash = "#/";
+  } else if (!palOpenNow && e.key === "/") {
+    var tag = document.activeElement ? document.activeElement.tagName : "";
+    if (!/^(INPUT|TEXTAREA)$/.test(tag)) { e.preventDefault(); qi.focus(); qi.select(); }
+  }
+});
+
+fetch("/api/tools").then(function (r) { return r.json(); }).then(function (d) {
+  TOOLS = d.tools || [];
+  CATS = d.categories || [];
+  WARNINGS = d.warnings || [];
+  APP = d.app || {};
+  APP.loaded = true;
+  return fetch("/api/settings").then(function (r) { return r.json(); });
+}).then(function (d) {
+  if (d && d.settings) SETTINGS = d.settings;
+  applyTheme();
+  renderRoute();
+  refreshStatus();
+}).catch(function () {
+  document.getElementById("view").innerHTML =
+    '<div class="envbanner" style="border-color:var(--bad-border);background:var(--bad-bg);color:var(--bad)">' +
+    "✗ 桌面服务连不上（正常情况不会出现）。<b>怎么办：</b>关掉窗口重新打开应用；" +
+    "还是不行就看故障排查手册第 1 条。</div>";
+});
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>

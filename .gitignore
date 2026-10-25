@@ -1,0 +1,16 @@
+# 运行时个人数据（绝不入库）
+data/
+*.db
+*.sqlite3
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE / 会话
+.idea/
+.vscode/
+.zcode/

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>番茄钟</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font: 16px/1.6 system-ui, "Microsoft YaHei", sans-serif;
+    background: #f6f7f9; color: #1f2937;
+  }
+  .box { text-align: center; }
+  #clock { font-size: 84px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 2px; }
+  .state { color: #6b7280; margin: 6px 0 18px; }
+  button {
+    font: inherit; padding: 10px 26px; margin: 0 6px; border-radius: 12px; cursor: pointer;
+    border: 1px solid #d7dce3; background: #fff; color: inherit;
+  }
+  button.primary { background: #e05252; border-color: #e05252; color: #fff; font-weight: 600; }
+  .mins { margin-top: 18px; color: #6b7280; font-size: 14px; }
+  .mins button { padding: 4px 14px; margin: 0 3px; font-size: 13px; }
+  .mins button.sel { background: #e05252; border-color: #e05252; color: #fff; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #10141c; color: #e5e9f0; }
+    button { background: #1c2331; border-color: #333e52; }
+  }
+</style>
+</head>
+<body>
+<div class="box">
+  <div id="clock">25:00</div>
+  <div class="state" id="state">准备专注</div>
+  <div>
+    <button class="primary" id="start">开始专注</button>
+    <button id="reset">重置</button>
+  </div>
+  <div class="mins" id="mins">
+    时长：
+    <button data-m="15">15 分</button>
+    <button data-m="25" class="sel">25 分</button>
+    <button data-m="45">45 分</button>
+    <input type="number" id="custommin" min="1" max="180" placeholder="自定义" style="width:76px;padding:4px 8px;border-radius:10px;border:1px solid #d7dce3;font:inherit;font-size:13px;text-align:center"> 分
+  </div>
+</div>
+<script>
+"use strict";
+var TOTAL = 25 * 60, LEFT = TOTAL, running = false, tick = null;
+var clock = document.getElementById("clock"), state = document.getElementById("state");
+function show() {
+  var m = Math.floor(LEFT / 60), s = LEFT % 60;
+  clock.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  document.title = running ? clock.textContent + " · 番茄钟" : "番茄钟";
+}
+function beep() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.35, 0.7].forEach(function (t) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = 880; o.type = "sine"; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.001, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.3);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.32);
+    });
+  } catch (e) {}
+}
+function stop() { clearInterval(tick); tick = null; running = false; }
+document.getElementById("start").onclick = function () {
+  if (running) { stop(); state.textContent = "已暂停"; this.textContent = "继续专注"; return; }
+  running = true; state.textContent = "专注中…"; this.textContent = "暂停";
+  tick = setInterval(function () {
+    LEFT--;
+    if (LEFT <= 0) { LEFT = 0; show(); stop(); beep(); state.textContent = "🍅 完成一轮！休息一下"; document.getElementById("start").textContent = "开始专注"; return; }
+    show();
+  }, 1000);
+  show();
+};
+document.getElementById("reset").onclick = function () {
+  stop(); LEFT = TOTAL; state.textContent = "准备专注";
+  document.getElementById("start").textContent = "开始专注"; show();
+};
+document.getElementById("mins").addEventListener("click", function (e) {
+  var m = e.target.getAttribute && e.target.getAttribute("data-m");
+  if (!m) return;
+  Array.prototype.forEach.call(this.querySelectorAll("button"), function (b) { b.classList.remove("sel"); });
+  e.target.classList.add("sel");
+  TOTAL = parseInt(m, 10) * 60; LEFT = TOTAL; stop();
+  state.textContent = "准备专注"; document.getElementById("start").textContent = "开始专注"; show();
+});
+// 自定义时长：输入后回车即生效（任意 1-180 分钟）
+var customInput = document.getElementById("custommin");
+function applyCustom() {
+  var v = parseInt(customInput.value, 10);
+  if (!v || v < 1 || v > 180) { state.textContent = "请输入 1-180 的分钟数"; return; }
+  Array.prototype.forEach.call(document.getElementById("mins").querySelectorAll("button"),
+    function (b) { b.classList.remove("sel"); });
+  customInput.classList.add("sel");
+  TOTAL = v * 60; LEFT = TOTAL; stop();
+  state.textContent = "准备专注 · " + v + " 分钟";
+  document.getElementById("start").textContent = "开始专注";
+  show();
+}
+customInput.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") applyCustom();
+});
+customInput.addEventListener("change", applyCustom);
+show();
+</script>
+</body>
+</html>

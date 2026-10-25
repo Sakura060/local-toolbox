@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>捞图 — 截图记忆库</title>
+<style>
+  :root{
+    --bg:#101418; --panel:#171c22; --line:#242c34; --text:#dfe6ec;
+    --dim:#8a97a3; --accent:#4da3ff; --accent2:#7ee0a3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--panel);
+    border-bottom:1px solid var(--line);padding:10px 16px}
+  .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .logo{font-size:20px;font-weight:700;letter-spacing:1px}
+  .logo b{color:var(--accent)}
+  .sub{color:var(--dim);font-size:12px}
+  #q{flex:1;min-width:220px;padding:10px 14px;font-size:15px;border-radius:10px;
+    border:1px solid var(--line);background:var(--bg);color:var(--text);outline:none}
+  #q:focus{border-color:var(--accent)}
+  button{padding:8px 14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--bg);color:var(--text);cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  #bar{height:6px;background:var(--line);position:relative;overflow:hidden;margin-top:8px;border-radius:3px;
+    border-radius:2px;display:none}
+  #bar>i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);width:0;transition:width .3s}
+  main{padding:16px}
+  #status{color:var(--dim);font-size:13px;margin:0 0 12px}
+  #status b{color:var(--accent2)}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;cursor:pointer;transition:transform .12s,border-color .12s}
+  .card:hover{transform:translateY(-2px);border-color:var(--accent)}
+  .card .img{height:150px;background:#0b0e11;display:flex;align-items:center;
+    justify-content:center;color:#2c3944;font-size:30px}
+  .card img{width:100%;height:100%;object-fit:cover;display:block}
+  .card .meta{padding:8px 10px}
+  .card .name{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .info{font-size:11px;color:var(--dim);margin-top:3px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  mark{background:transparent;color:var(--accent);font-weight:700}
+  #more{display:block;margin:18px auto}
+  #empty{color:var(--dim);text-align:center;padding:60px 0;line-height:2}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#2a1215;color:#ffb4ae;border:1px solid #5c2a2c;padding:8px 16px;
+    border-radius:10px;font-size:13px;display:none}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;margin-bottom:14px;display:none}
+  .panel h3{margin:0 0 10px;font-size:13px;color:var(--dim);font-weight:600}
+  .tlrow{display:flex;align-items:flex-end;gap:3px;height:64px;overflow-x:auto}
+  .tlbar{flex:none;width:22px;background:var(--accent);opacity:.75;border-radius:3px 3px 0 0;
+    cursor:pointer;position:relative}
+  .tlbar:hover{opacity:1}
+  .tlbar span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+    white-space:nowrap;font-size:10px;color:var(--text);display:none}
+  .tlbar:hover span{display:block}
+  .tlcap{font-size:10px;color:var(--dim);margin-top:6px}
+  .dupegroup{border-top:1px dashed var(--line);padding:10px 0}
+  .dupegroup:first-of-type{border-top:0}
+  .dupetitle{font-size:12px;color:var(--dim);margin-bottom:8px}
+  .dupetitle b{color:var(--accent2)}
+  .dupeimgs{display:flex;gap:10px;flex-wrap:wrap}
+  .dupeimgs .card{width:150px}
+  .dupeimgs .card .img{height:100px}
+  .keepbadge{color:var(--accent2);font-size:11px}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <div class="logo">捞<b>图</b></div>
+    <div class="sub" id="stats">加载中…</div>
+    <input id="q" type="search" placeholder="搜截图里的文字，比如：快递单号 / 优惠券 / 报错  — 全程本地，不上传" autofocus>
+    <button id="tlbtn">时间线</button>
+    <button id="dupbtn">查重</button>
+    <button id="rescan">重新扫描</button>
+    <button id="adddir">＋ 目录</button>
+  </div>
+  <div id="bar"><i></i></div>
+</header>
+<main>
+  <p id="status"></p>
+  <div class="panel" id="tlpanel">
+    <h3>截图数量按天分布（点柱子看当天；再点一次清除）</h3>
+    <div class="tlrow" id="tlrow"></div>
+    <div class="tlcap" id="tlcap"></div>
+  </div>
+  <div class="panel" id="duppanel">
+    <h3>疑似重复截图（感知哈希，保留最新一张）</h3>
+    <div id="dupelist"><span style="color:var(--dim);font-size:12px">加载中…</span></div>
+  </div>
+  <div id="grid"></div>
+  <button id="more" style="display:none">加载更多</button>
+  <div id="empty" style="display:none"></div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const PAGE = 60;
+let q = "", offset = 0, total = -1, busy = false, reachedEnd = false;
+let timeRange = null;   // {t0, t1, label} 时间过滤
+
+function esc(s){const d=document.createElement("div");d.textContent=s==null?"":String(s);return d.innerHTML;}
+function fmtSize(n){if(n>1048576)return (n/1048576).toFixed(1)+" MB";if(n>1024)return (n/1024).toFixed(0)+" KB";return n+" B";}
+function fmtTime(ts){const d=new Date(ts*1000);const p=x=>String(x).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;}
+function hi(text){
+  if(!q.trim()||!text) return esc(text);
+  const t=q.trim(); let out="", rest=String(text), low=rest.toLowerCase(), n=t.toLowerCase();
+  let idx=low.indexOf(n);
+  if(idx<0){return esc(rest);}
+  while(idx>=0){
+    out+=esc(rest.slice(0,idx))+"<mark>"+esc(rest.slice(idx,idx+n.length))+"</mark>";
+    rest=rest.slice(idx+n.length); low=rest.toLowerCase(); idx=low.indexOf(n);
+  }
+  return out+esc(rest);
+}
+function toast(msg){const t=$("#toast");t.textContent=msg;t.style.display="block";
+  clearTimeout(t._h);t._h=setTimeout(()=>t.style.display="none",2600);}
+
+async function api(path, opts){
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function card(it){
+  const d = document.createElement("div");
+  d.className = "card";
+  d.innerHTML = `<div class="img">🖼<img loading="lazy" src="/thumb/${it.id}" alt=""></div>
+    <div class="meta">
+      <div class="name">${hi(it.name)}</div>
+      <div class="info">${fmtTime(it.mtime)} · ${fmtSize(it.size)}${it.ocr_ok?"":" · 未识别"}</div>
+    </div>`;
+  const img = d.querySelector("img");
+  img.onerror = () => img.remove();
+  d.onclick = async () => {
+    const r = await api("/api/open",{method:"POST",body:JSON.stringify({id:it.id})});
+    if(!r.ok) toast(r.error||"打开失败");
+  };
+  d.title = it.name;
+  return d;
+}
+
+async function load(reset){
+  if(busy) return;
+  if(reset){offset=0;reachedEnd=false;$("#grid").innerHTML="";}
+  if(reachedEnd) return;
+  busy=true;
+  try{
+    let url;
+    if(timeRange){
+      url = `/api/search?t0=${timeRange.t0}&t1=${timeRange.t1}&limit=${PAGE}&offset=${offset}`;
+    }else{
+      url = q.trim()
+        ? `/api/search?q=${encodeURIComponent(q.trim())}&limit=${PAGE}&offset=${offset}`
+        : `/api/search?limit=${PAGE}&offset=${offset}`;
+    }
+    const data = await api(url);
+    total = data.total;
+    for(const it of data.items) $("#grid").appendChild(card(it));
+    offset += data.items.length;
+    if(offset >= total || data.items.length===0) reachedEnd = true;
+    $("#more").style.display = reachedEnd ? "none" : "block";
+    renderStatus(data.mode);
+    renderEmpty();
+  }catch(e){ toast("请求失败："+e); }
+  busy=false;
+}
+
+function renderStatus(mode){
+  const filter = timeRange ? ` · ${esc(timeRange.label)}` : "";
+  const label = timeRange ? "时间段"
+    : (q.trim() ? `搜索“${esc(q.trim())}”` : "最新图片");
+  $("#status").innerHTML = `${label}：共 <b>${total}</b> 张${filter}` +
+    (mode==="like" ? "（原文包含匹配）" : "");
+}
+
+function renderEmpty(){
+  const e = $("#empty");
+  if(total===0){
+    e.style.display="block";
+    e.innerHTML = q.trim()
+      ? "没有命中。试试更短的词，比如“单号”。<br>若截图还没扫过，点右上角“重新扫描”。"
+      : "索引是空的。点右上角“＋ 目录”添加你的截图文件夹。";
+  } else e.style.display="none";
+}
+
+async function refreshStats(){
+  try{
+    const st = await api("/api/stats");
+    const idx = st.indexing||{};
+    $("#stats").textContent =
+      `${st.total} 张已索引 · ${st.errors} 张失败 · ${st.roots.length} 个目录`;
+    if(idx.active){
+      $("#bar").style.display="block";
+      const pct = idx.total? Math.round(idx.done/idx.total*100):0;
+      $("#bar>i").style.width = pct+"%";
+      $("#status").innerHTML = `正在索引 <b>${idx.done}/${idx.total}</b>（${pct}%） ${esc(idx.current||"")}`;
+    }else{
+      $("#bar").style.display="none";
+      const pending = st.total - st.ocr_ok;
+      if(pending > 0){
+        $("#status").innerHTML = `⚠ 还有 <b>${pending}</b> 张截图没识别完——工具箱运行时后台会自动补索引，本页每 1.5 秒自动刷新进度`;
+      }else if(idx.last_summary && idx.last_summary.done !== undefined){
+        const s=idx.last_summary;
+        if(s.processed !== undefined) $("#status").innerHTML =
+          `上次扫描：新增/更新 <b>${s.updated}</b>，失败 <b>${s.errors}</b>，清理失效 <b>${s.purged}</b>`;
+      }
+    }
+  }catch(e){}
+}
+
+let deb;
+$("#q").addEventListener("input", e=>{
+  clearTimeout(deb);
+  deb = setTimeout(()=>{ q = e.target.value; load(true); }, 250);
+});
+$("#q").addEventListener("keydown", e=>{ if(e.key==="Enter"){clearTimeout(deb); q=e.target.value; load(true);} });
+$("#more").onclick = () => load(false);
+$("#rescan").onclick = async () => {
+  const r = await api("/api/rescan",{method:"POST",body:"{}"});
+  toast(r.ok ? (r.started?"扫描已开始":"已在扫描中") : r.error);
+};
+$("#adddir").onclick = async () => {
+  const p = prompt("输入要索引的文件夹路径（例如 C:\\Users\\你的用户名\\Pictures\\Screenshots）：", "");
+  if(!p) return;
+  const r = await api("/api/dirs",{method:"POST",body:JSON.stringify({path:p})});
+  if(r.ok){ toast("已添加并开始扫描："+r.path); refreshStats(); }
+  else toast(r.error);
+};
+
+/* ---------- v0.2：时间线与查重 ---------- */
+async function loadTimeline(){
+  const j = await api("/api/timeline?bucket=day");
+  const row = $("#tlrow"); row.innerHTML = "";
+  const max = Math.max(1, ...j.clusters.map(c=>c.count));
+  for(const c of j.clusters.slice().reverse()){
+    const b = document.createElement("div");
+    b.className = "tlbar";
+    b.style.height = Math.max(4, Math.round(c.count/max*60)) + "px";
+    const tip = document.createElement("span");
+    tip.textContent = `${c.bucket} · ${c.count} 张`;
+    b.appendChild(tip);
+    b.onclick = () => {
+      const t0 = new Date(c.bucket+"T00:00:00").getTime()/1000;
+      if(timeRange && timeRange.t0 === t0){ timeRange = null; }
+      else { timeRange = {t0, t1: t0+86399, label: c.bucket}; }
+      load(true);
+    };
+    row.appendChild(b);
+  }
+  $("#tlcap").textContent = j.clusters.length
+    ? `共 ${j.clusters.length} 天有截图，最多的一天 ${max} 张` : "还没有数据";
+}
+$("#tlbtn").onclick = async () => {
+  const p = $("#tlpanel");
+  const show = p.style.display !== "block";
+  p.style.display = show ? "block" : "none";
+  if(show) await loadTimeline();
+};
+$("#dupbtn").onclick = async () => {
+  const p = $("#duppanel");
+  const show = p.style.display !== "block";
+  p.style.display = show ? "block" : "none";
+  if(show){
+    $("#dupelist").innerHTML = '<span style="color:var(--dim);font-size:12px">计算中…</span>';
+    const j = await api("/api/dupes?dist=8");
+    const box = $("#dupelist"); box.innerHTML = "";
+    if(!j.groups.length){
+      box.innerHTML = '<span style="color:var(--dim);font-size:12px">没有发现重复截图 ✔</span>';
+      return;
+    }
+    for(const g of j.groups){
+      const d = document.createElement("div");
+      d.className = "dupegroup";
+      const t = document.createElement("div");
+      t.className = "dupetitle";
+      t.innerHTML = `<b>${g.count}</b> 张相似 · 保留最新的 <span class="keepbadge">#${g.keep}</span>`;
+      const imgs = document.createElement("div");
+      imgs.className = "dupeimgs";
+      for(const it of g.items){
+        const c = card(it);
+        if(it.id === g.keep){
+          const b = document.createElement("div");
+          b.className = "keepbadge"; b.textContent = "✓ 保留";
+          c.querySelector(".meta").appendChild(b);
+        }
+        imgs.appendChild(c);
+      }
+      d.append(t, imgs);
+      box.appendChild(d);
+    }
+  }
+};
+
+setInterval(refreshStats, 1500);
+refreshStats();
+load(true);
+</script>
+</body>
+</html>

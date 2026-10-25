@@ -1,0 +1,916 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧰</text></svg>">
+<title>ToolHub 本地工具箱</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f9; --card: #ffffff; --text: #1f2937; --muted: #6b7280; --faint: #9aa3af;
+    --border: #e5e7eb; --line: #eef0f3; --accent: #2563eb; --accent-soft: #eff6ff;
+    --ok: #16a34a; --warn: #b45309; --warn-bg: #fffbeb; --warn-border: #fde68a;
+    --mark: #fef08a; --code-bg: #f3f4f6; --shadow-sm: 0 1px 3px rgba(17,24,39,.07);
+    --shadow-lg: 0 12px 32px rgba(17,24,39,.16);
+    --trail: #2563eb;
+  }
+  html.dark {
+    color-scheme: dark;
+    --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --faint: #64748b;
+    --border: #334155; --line: #26324a; --accent: #60a5fa; --accent-soft: #1e3a8a;
+    --ok: #4ade80; --warn: #fbbf24; --warn-bg: #3b2708; --warn-border: #92610c;
+    --mark: #854d0e; --code-bg: #0b1222; --shadow-sm: 0 1px 3px rgba(0,0,0,.4);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,.55);
+    --trail: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.6 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  header {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 18px 24px 6px; max-width: 1200px; margin: 0 auto;
+  }
+  .brand { font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+  .brand .sub { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+  #netstat { margin-left: auto; color: var(--muted); font-size: 13px; }
+  #netstat b { color: var(--ok); }
+  .themebtn { border-radius: 999px; padding: 4px 12px; }
+
+  .searchwrap { padding: 12px 24px 0; max-width: 1200px; margin: 0 auto; }
+  .searchbox { position: relative; max-width: 760px; margin: 0 auto; }
+  .sicon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 15px; opacity: .6; pointer-events: none; }
+  #q {
+    width: 100%; padding: 13px 44px 13px 40px; font-size: 16px;
+    border: 1px solid var(--border); border-radius: 14px; outline: none;
+    background: var(--card); color: var(--text); box-shadow: var(--shadow-sm);
+    transition: box-shadow .15s, border-color .15s;
+  }
+  #q:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.14); }
+  #qclear {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 24px; height: 24px; border-radius: 50%; border: 0; cursor: pointer;
+    background: var(--border); color: var(--muted); font-size: 14px; line-height: 1;
+  }
+  .hint { color: var(--faint); font-size: 12.5px; padding: 7px 2px 0; text-align: center; }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px auto 0; max-width: 760px; }
+  #hist { margin-top: 8px; }
+  .chip {
+    padding: 4px 13px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .chip:hover { color: var(--text); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip .n { opacity: .7; font-size: 12px; margin-left: 4px; }
+  .hchip { font-size: 12.5px; padding: 3px 11px; }
+
+  main { padding: 14px 24px 40px; max-width: 1200px; margin: 0 auto; }
+  .recenthead { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }
+  .recenttitle { font-weight: 700; font-size: 15px; }
+  .recenthead .ms { color: var(--faint); font-size: 12px; }
+  .recenthead button { margin-left: auto; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 15px 16px; display: flex; flex-direction: column; gap: 8px;
+    box-shadow: var(--shadow-sm); transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .card .row { display: flex; align-items: center; gap: 9px; }
+  .ticon { font-size: 21px; line-height: 1; }
+  .card h3 { margin: 0; font-size: 15.5px; flex: 1; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.on { background: var(--ok); animation: pulse 2.2s infinite; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(22,163,74,.35); }
+    70% { box-shadow: 0 0 0 7px rgba(22,163,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+  }
+  .ms { color: var(--faint); font-size: 12px; }
+  .card p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
+  .card .acts { display: flex; gap: 8px; align-items: center; }
+  .port { color: var(--faint); font-size: 12px; margin-right: auto; }
+  .todo {
+    display: inline-block; color: var(--warn); background: var(--warn-bg);
+    border: 1px solid var(--warn-border); border-radius: 8px;
+    padding: 2px 9px; font-size: 12px; margin-top: 2px;
+  }
+  a.btn, button.btn {
+    display: inline-block; padding: 5px 14px; border-radius: 8px; font-size: 13px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    cursor: pointer; text-decoration: none; transition: transform .1s, opacity .12s;
+  }
+  a.btn:active, button.btn:active { transform: scale(.96); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.danger { color: #dc2626; border-color: #fecaca; }
+  html.dark button.btn.danger { color: #f87171; border-color: #7f1d1d; }
+  a.btn.open { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  button.btn:disabled { opacity: .45; cursor: not-allowed; }
+  .hidden { display: none !important; }
+
+  /* 搜索结果 / 最近动态 */
+  #results, #recent { margin-bottom: 24px; }
+  .rgroup { background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+  .rgroup .ghead {
+    display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+    background: var(--line); border-bottom: 1px solid var(--border); font-size: 13.5px;
+  }
+  .ghead .cnt { color: var(--muted); }
+  .ghead .err { color: var(--warn); }
+  .ghead a { margin-left: auto; font-size: 12.5px; color: var(--accent); text-decoration: none; }
+  .ritem { display: flex; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .ritem:last-child { border-bottom: 0; }
+  .rthumb { width: 84px; height: 60px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); background: var(--code-bg); flex: none; }
+  .rmain { min-width: 0; flex: 1; }
+  .rtitle { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rsnip { color: var(--muted); font-size: 13px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .rmeta { color: var(--faint); font-size: 12px; margin-top: 2px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .ritem.link { cursor: pointer; }
+  .ritem.link:hover { background: var(--line); }
+  .empty { color: var(--muted); text-align: center; padding: 18px; font-size: 13.5px; }
+  mark { background: var(--mark); color: inherit; padding: 0 1px; border-radius: 2px; }
+  .skel {
+    height: 14px; border-radius: 6px; margin: 11px 16px;
+    background: linear-gradient(90deg, var(--border) 25%, var(--line) 50%, var(--border) 75%);
+    background-size: 200% 100%; animation: shimmer 1.1s infinite linear;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  /* 弹窗 */
+  #modal { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
+  #modal .box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    max-width: 720px; width: 100%; max-height: 82vh; display: flex; flex-direction: column;
+    box-shadow: var(--shadow-lg); animation: pop .16s ease-out;
+  }
+  @keyframes pop { from { transform: scale(.96); opacity: .5; } }
+  #modal .box.wide { max-width: 1100px; }
+  #modal .box.wide .mbody { padding: 10px; }
+  #modal .mhead { display: flex; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); gap: 10px; }
+  #modal .mhead b { flex: 1; font-size: 15px; }
+  #modal .mbody { padding: 16px 18px; overflow: auto; color: var(--text); font-size: 13.5px; }
+  #modal .mbody.text { white-space: pre-wrap; }
+  #modal .mbody iframe { width: 100%; height: 66vh; border: 0; border-radius: 8px; background: var(--bg); }
+  .bigimg { display: block; max-width: 100%; max-height: 72vh; margin: 0 auto; border-radius: 8px; }
+  .md h2, .md h3, .md h4, .md h5 { margin: .8em 0 .4em; line-height: 1.4; }
+  .md h2 { font-size: 17px; } .md h3 { font-size: 15.5px; } .md h4, .md h5 { font-size: 14px; }
+  .md p { margin: .5em 0; }
+  .md ul { margin: .4em 0; padding-left: 1.4em; }
+  .md code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 12.5px; }
+  .md strong { font-weight: 700; }
+
+  footer { text-align: center; color: var(--faint); font-size: 12.5px; padding: 10px 0 26px; }
+
+  /* 光标跟随（dot+ring）与点击涟漪 —— 简洁风：rAF+lerp+translate3d */
+  #cdot {
+    position: fixed; left: 0; top: 0; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--trail); opacity: 0; pointer-events: none; z-index: 45;
+    transition: opacity .25s; will-change: transform;
+  }
+  #cring {
+    position: fixed; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%;
+    border: 1.5px solid var(--trail); opacity: 0; pointer-events: none; z-index: 45;
+    transition: opacity .25s, border-color .2s; will-change: transform;
+  }
+  .ripple {
+    position: fixed; width: 46px; height: 46px; margin: -23px 0 0 -23px;
+    border-radius: 50%; border: 2px solid var(--trail); pointer-events: none;
+    z-index: 45; animation: ripple .45s ease-out forwards;
+  }
+  @keyframes ripple {
+    from { transform: scale(.22); opacity: .75; }
+    to { transform: scale(1.1); opacity: 0; }
+  }
+
+  /* 命令面板 */
+  #pal { position: fixed; inset: 0; background: rgba(15,23,42,.5); z-index: 55; display: flex; justify-content: center; align-items: flex-start; padding: 9vh 20px 20px; }
+  #pal .palbox {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    width: 100%; max-width: 660px; box-shadow: var(--shadow-lg); overflow: hidden;
+    animation: pop .14s ease-out; display: flex; flex-direction: column;
+  }
+  #pinput {
+    width: 100%; padding: 14px 16px; font-size: 15.5px; border: 0; outline: none;
+    background: var(--card); color: var(--text); border-bottom: 1px solid var(--line);
+  }
+  #plist { max-height: 56vh; overflow: auto; }
+  .pitem { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .pitem:last-child { border-bottom: 0; }
+  .pitem:hover { background: var(--line); }
+  .pitem.sel { background: var(--accent-soft); }
+  .picon { font-size: 16px; width: 22px; text-align: center; flex: none; }
+  .pitem .plabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .phint { color: var(--faint); font-size: 12px; flex: none; }
+  .psec { padding: 8px 16px 4px; color: var(--faint); font-size: 12px; border-bottom: 1px solid var(--line); }
+  .pempty { padding: 22px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  .pkbd { display: flex; gap: 14px; padding: 8px 16px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11.5px; }
+  .pkbd b { color: var(--muted); }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 10px);
+    background: #111827; color: #f9fafb; padding: 9px 18px; border-radius: 10px;
+    font-size: 13.5px; opacity: 0; transition: opacity .22s, transform .22s;
+    pointer-events: none; z-index: 60; box-shadow: var(--shadow-lg);
+  }
+  #toast.show { opacity: .95; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🧰 ToolHub<span class="sub">本地工具箱 · 9 个工具一个入口</span></div>
+  <button id="palbtn" class="btn themebtn" title="命令面板（Ctrl+K）">⌘ 命令</button>
+  <button id="themebtn" class="btn themebtn" title="切换主题（自动→亮→暗）">🖥 自动</button>
+  <div id="netstat">状态加载中…</div>
+</header>
+<section class="searchwrap">
+  <div class="searchbox">
+    <span class="sicon">🔍</span>
+    <input id="q" type="search" aria-label="跨工具搜索" placeholder="一次搜索，跨本地工具：截图里的文字 / 笔记 / 文件身世…" autocomplete="off">
+    <button id="qclear" class="hidden" title="清空">×</button>
+  </div>
+  <div class="hint">输入即搜 · 回车立即搜 · <b>/</b> 聚焦 · <b>Esc</b> 清空 · 点<b>预览</b>弹窗内直接用工具</div>
+  <div id="hist" class="chips hidden"></div>
+</section>
+<main>
+  <section id="recent" class="hidden"></section>
+  <section id="results" class="hidden"></section>
+  <div id="chips" class="chips"></div>
+  <section id="grid" class="grid"></section>
+</main>
+<div id="modal" class="hidden">
+  <div class="box">
+    <div class="mhead"><b id="mtitle">预览</b><button class="btn" onclick="closeModal()">关闭</button></div>
+    <div class="mbody" id="mbody"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<div id="pal" class="hidden">
+  <div class="palbox">
+    <input id="pinput" placeholder="搜索或执行命令…（&gt; 只搜命令 · ↑↓ 选择 · 回车执行 · Esc 关闭）" autocomplete="off">
+    <div id="plist"></div>
+    <div class="pkbd"><span><b>↑↓</b> 选择</span><span><b>Enter</b> 执行</span><span><b>&gt;</b> 只搜命令</span><span><b>Esc</b> 关闭</span></div>
+  </div>
+</div>
+<footer>ToolHub v0.11 · 全部数据留在本机 · 状态每 5 秒自动刷新</footer>
+
+<script>
+"use strict";
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function fmtWhen(ts) {
+  if (!ts) return "";
+  var d = new Date(ts * 1000);
+  var p = function (n) { return (n < 10 ? "0" : "") + n; };
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function relTime(ts) {
+  if (!ts) return "";
+  var diff = Date.now() / 1000 - ts;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return Math.floor(diff / 60) + " 分钟前";
+  if (diff < 86400) return Math.floor(diff / 3600) + " 小时前";
+  var d = new Date(ts * 1000);
+  var p = function (n) { return (n < 10 ? "0" : "") + n; };
+  var md = (d.getMonth() + 1) + "-" + p(d.getDate());
+  if (d.getFullYear() !== new Date().getFullYear()) md = d.getFullYear() + "-" + md;
+  return md + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+
+/* ---------- 主题 ---------- */
+function getTheme() { return localStorage.getItem("toolhub-theme") || "auto"; }
+function applyTheme() {
+  var pref = getTheme();
+  var dark = pref === "dark" ||
+    (pref === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+  var b = document.getElementById("themebtn");
+  if (b) b.textContent = pref === "auto" ? "🖥 自动" : (pref === "dark" ? "🌙 暗色" : "☀️ 亮色");
+}
+function cycleTheme() {
+  var order = ["auto", "light", "dark"];
+  localStorage.setItem("toolhub-theme", order[(order.indexOf(getTheme()) + 1) % 3]);
+  applyTheme();
+}
+
+var TOOLS = [];
+var STATUS = {};
+var FILTER = "all";
+var toastTimer = null;
+function toast(msg) {
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2600);
+}
+function toolUrl(id) {
+  for (var i = 0; i < TOOLS.length; i++) if (TOOLS[i].id === id) return TOOLS[i].url;
+  return "#";
+}
+function toolById(id) {
+  for (var i = 0; i < TOOLS.length; i++) if (TOOLS[i].id === id) return TOOLS[i];
+  return null;
+}
+
+/* ---------- 工具卡 ---------- */
+function passFilter(t) {
+  if (FILTER === "online") return !!(STATUS[t.id] && STATUS[t.id].online);
+  if (FILTER === "search") return !!t.search;
+  return true;
+}
+function cardHtml(t) {
+  var st = STATUS[t.id] || {};
+  var online = !!st.online;
+  var ms = online
+    ? '<span class="ms" data-ms="' + esc(t.id) + '">' + (st.ms || 0) + "ms</span>"
+    : "";
+  var open = online
+    ? '<a class="btn open" href="' + esc(t.url) + '" target="_blank" rel="noopener">打开 ↗</a>'
+    : '<a class="btn" style="opacity:.45;pointer-events:none" href="#">打开 ↗</a>';
+  var preview = online
+    ? '<button class="btn" data-preview="' + esc(t.id) + '">预览</button>'
+    : "";
+  var launch = (!online && t.bat)
+    ? '<button class="btn primary" data-launch="' + esc(t.id) + '">启动</button>'
+    : "";
+  var stop = (online && t.bat)
+    ? '<button class="btn danger" data-stop="' + esc(t.id) + '">停止</button>'
+    : "";
+  var todo = st.note ? '<span class="todo">⚠ ' + esc(st.note) + "</span>" : "";
+  return '<div class="card">' +
+    '<div class="row"><span class="ticon">' + esc(t.icon || "🧰") + "</span>" +
+    "<h3>" + esc(t.name) + "</h3>" +
+    '<span class="dot' + (online ? " on" : "") + '"></span>' + ms + "</div>" +
+    "<p>" + esc(t.desc) + "</p>" + todo +
+    '<div class="acts"><span class="port">端口 ' + esc(t.port) + "</span>" + open + preview + stop + launch + "</div>" +
+    "</div>";
+}
+function renderChips() {
+  var online = TOOLS.filter(function (t) { return STATUS[t.id] && STATUS[t.id].online; }).length;
+  var searchN = TOOLS.filter(function (t) { return !!t.search; }).length;
+  var defs = [["all", "全部", TOOLS.length], ["online", "在线", online], ["search", "搜索源", searchN]];
+  document.getElementById("chips").innerHTML = defs.map(function (d) {
+    return '<button class="chip' + (FILTER === d[0] ? " active" : "") + '" data-f="' + d[0] + '">' +
+      esc(d[1]) + '<span class="n">' + d[2] + "</span></button>";
+  }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#chips [data-f]"), function (b) {
+    b.onclick = function () { setFilter(b.getAttribute("data-f")); };
+  });
+}
+function setFilter(f) { FILTER = f; renderGrid(); }
+function renderGrid() {
+  renderChips();
+  var list = TOOLS.filter(passFilter);
+  var g = document.getElementById("grid");
+  if (!list.length) { g.innerHTML = '<div class="empty">没有符合条件的工具</div>'; return; }
+  g.innerHTML = list.map(cardHtml).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("[data-launch]"), function (b) {
+    b.onclick = function () { launch(b.getAttribute("data-launch")); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-stop]"), function (b) {
+    b.onclick = function () { stopTool(b.getAttribute("data-stop")); };
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-preview]"), function (b) {
+    b.onclick = function () { openFrame(b.getAttribute("data-preview")); };
+  });
+}
+var lastSig = null;
+function statusSig() {
+  // 只比较"影响布局"的状态：在线与否 + 徽标文案。延迟数字波动不触发重建。
+  return TOOLS.map(function (t) {
+    var s = STATUS[t.id] || {};
+    return t.id + ":" + (s.online ? 1 : 0) + ":" + (s.note || "");
+  }).join("|");
+}
+function refreshStatus() {
+  fetch("/api/status").then(function (r) { return r.json(); }).then(function (d) {
+    var n = 0;
+    (d.status || []).forEach(function (s) {
+      STATUS[s.id] = s;
+      if (s.online) n++;
+    });
+    var el = document.getElementById("netstat");
+    el.innerHTML = "<b>" + n + "</b> / " + TOOLS.length + " 在线 · 最近刷新 " + fmtWhen(Date.now() / 1000);
+    var sig = statusSig();
+    if (sig !== lastSig) {
+      lastSig = sig;
+      renderGrid();
+    } else {
+      // 状态没变：只原位刷新延迟数字，不重建卡片（防点击被重绘吞掉）
+      (d.status || []).forEach(function (s) {
+        var msEl = document.querySelector('[data-ms="' + s.id + '"]');
+        if (msEl) msEl.textContent = s.online ? (s.ms || 0) + "ms" : "";
+      });
+    }
+  }).catch(function () {});
+}
+function stopTool(id) {
+  var t = toolById(id);
+  if (!t || !confirm("强制结束 " + t.name + "？\n该工具未保存的工作可能丢失。")) return;
+  fetch("/api/stop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: id })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    toast(d.ok ? "已结束（PID " + (d.killed || []).join(", ") + "）"
+               : "停止失败：" + (d.error || "未知"));
+    refreshStatus();
+  }).catch(function () { toast("停止请求失败"); });
+}
+
+function launch(id) {
+  // 防抖：立刻禁用按钮，失败时恢复；成功则等状态轮询确认在线后由重绘接管
+  var btn = document.querySelector('[data-launch="' + id + '"]');
+  if (btn) { btn.disabled = true; btn.textContent = "启动中…"; }
+  toast("正在启动 " + id + "…");
+  fetch("/api/launch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: id })
+  }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.d.ok) {
+        if (btn) { btn.disabled = false; btn.textContent = "启动"; }
+        toast("启动失败：" + (res.d.error || res.d.hint || "未知错误"));
+        return;
+      }
+      toast("已在新窗口启动，等服务就绪后即可打开…");
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries++;
+        refreshStatus();
+        if ((STATUS[id] && STATUS[id].online) || tries > 12) clearInterval(timer);
+      }, 2000);
+    }).catch(function () {
+      if (btn) { btn.disabled = false; btn.textContent = "启动"; }
+      toast("启动请求失败");
+    });
+}
+
+/* ---------- 搜索历史 ---------- */
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem("toolhub-history") || "[]") || []; }
+  catch (e) { return []; }
+}
+function pushHistory(q) {
+  var h = getHistory().filter(function (x) { return x !== q; });
+  h.unshift(q);
+  try { localStorage.setItem("toolhub-history", JSON.stringify(h.slice(0, 6))); } catch (e) {}
+}
+function renderHistory() {
+  var box = document.getElementById("hist");
+  var h = getHistory();
+  if (!h.length || qi.value.trim()) { box.classList.add("hidden"); return; }
+  box.innerHTML = h.map(function (q) {
+    return '<button class="chip hchip" data-q="' + esc(q) + '">' + esc(q) + "</button>";
+  }).join("") + '<button class="chip hchip" id="hclear">清空</button>';
+  box.classList.remove("hidden");
+  Array.prototype.forEach.call(box.querySelectorAll("[data-q]"), function (b) {
+    b.onclick = function () {
+      qi.value = b.getAttribute("data-q");
+      qclear.classList.remove("hidden");
+      triggerSearch();
+    };
+  });
+  document.getElementById("hclear").onclick = function () {
+    localStorage.removeItem("toolhub-history");
+    renderHistory();
+  };
+}
+
+/* ---------- 结果条目 / 弹窗 ---------- */
+function hi(text, q) {
+  var safe = esc(text);
+  if (!q) return safe;
+  var eq = esc(q).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return safe.replace(new RegExp(eq, "gi"), function (m) { return "<mark>" + m + "</mark>"; });
+}
+function itemHtml(it, q) {
+  var thumb = it.url ? '<img class="rthumb" loading="lazy" src="' + esc(it.url) + '" onerror="this.style.display=\'none\'">' : "";
+  var extra = [];
+  if (it.extra) extra.push(esc(it.extra));
+  if (it.when) extra.push(esc(relTime(it.when)));
+  var act = it.detail_url ? "detail"
+    : (it.image_url ? "image" : (it.open_url ? "tool" : null));
+  var open = act
+    ? ' link" data-act="' + act + '" data-href="' + esc(it.detail_url || it.image_url || it.open_url) + '" data-title="' + esc(it.title)
+    : "";
+  return '<div class="ritem' + open + '">' + thumb +
+    '<div class="rmain"><div class="rtitle">' + hi(it.title, q) + "</div>" +
+    (it.snippet ? '<div class="rsnip">' + hi(it.snippet, q) + "</div>" : "") +
+    (extra.length ? '<div class="rmeta">' + extra.join("<span>·</span>") + "</div>" : "") +
+    "</div></div>";
+}
+function bindDetail(scope, closeAfter) {
+  Array.prototype.forEach.call(scope.querySelectorAll("[data-act]"), function (el) {
+    el.onclick = function () {
+      var act = el.getAttribute("data-act");
+      var href = el.getAttribute("data-href");
+      if (closeAfter) palClose();
+      if (act === "image") openImage(el.getAttribute("data-title") || "图片", href);
+      else if (act === "tool") window.open(href, "_blank");
+      else openDetail(href);
+    };
+  });
+}
+function setModalWide(wide) {
+  document.querySelector("#modal .box").classList.toggle("wide", wide);
+}
+function showModal() { document.getElementById("modal").classList.remove("hidden"); }
+function openModal(title, body) {
+  setModalWide(false);
+  document.getElementById("mtitle").textContent = title;
+  var mb = document.getElementById("mbody");
+  mb.classList.add("text");
+  mb.textContent = body;
+  showModal();
+}
+function openModalMd(title, src) {
+  setModalWide(false);
+  document.getElementById("mtitle").textContent = title;
+  var mb = document.getElementById("mbody");
+  mb.classList.remove("text");
+  mb.innerHTML = '<div class="md">' + mdRender(src) + "</div>";
+  showModal();
+}
+function openImage(title, url) {
+  setModalWide(true);
+  document.getElementById("mtitle").textContent = title;
+  var mb = document.getElementById("mbody");
+  mb.classList.remove("text");
+  mb.innerHTML = '<img class="bigimg" src="' + esc(url) + '" alt="' + esc(title) + '">';
+  showModal();
+}
+function openFrame(toolId) {
+  var t = toolById(toolId);
+  if (!t) return;
+  setModalWide(true);
+  document.getElementById("mtitle").textContent = t.name;
+  var mb = document.getElementById("mbody");
+  mb.classList.remove("text");
+  mb.innerHTML = '<iframe src="' + esc(t.url) + '" title="' + esc(t.name) + '"></iframe>';
+  showModal();
+}
+function closeModal() {
+  document.getElementById("modal").classList.add("hidden");
+  var mb = document.getElementById("mbody");
+  if (mb.querySelector("iframe, img")) mb.innerHTML = "";
+}
+function openDetail(url) {
+  fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+    var title = d.title || d.name || "详情";
+    if (d.content != null) openModalMd(title, d.content);
+    else openModal(title, d.snippet || d.ocr_text || JSON.stringify(d, null, 2));
+  }).catch(function () { openModal("详情", "加载失败（工具可能已离线）"); });
+}
+/* 安全 Mini-Markdown：先整体转义，再做受限结构替换（不引入任何原始 HTML） */
+function mdRender(src) {
+  function inline(s) {
+    return s.replace(/`([^`]+)`/g, function (_, c) { return "<code>" + c + "</code>"; })
+            .replace(/\*\*([^*]+)\*\*/g, function (_, c) { return "<strong>" + c + "</strong>"; });
+  }
+  var out = [], inUl = false;
+  esc(src).split(/\r?\n/).forEach(function (ln) {
+    var h = ln.match(/^(#{1,4})\s+(.*)$/);
+    if (h) {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      var lvl = h[1].length + 1;
+      out.push("<h" + lvl + ">" + inline(h[2]) + "</h" + lvl + ">");
+    } else if (/^\s*[-*]\s+/.test(ln)) {
+      if (!inUl) { out.push("<ul>"); inUl = true; }
+      out.push("<li>" + inline(ln.replace(/^\s*[-*]\s+/, "")) + "</li>");
+    } else {
+      if (inUl) { out.push("</ul>"); inUl = false; }
+      if (ln.trim()) out.push("<p>" + inline(ln) + "</p>");
+    }
+  });
+  if (inUl) out.push("</ul>");
+  return out.join("");
+}
+
+/* ---------- 最近动态 ---------- */
+function renderRecent(d) {
+  var box = document.getElementById("recent");
+  var groups = (d.groups || []).filter(function (g) { return g.ok === true && g.items.length; });
+  if (!groups.length) { box.classList.add("hidden"); return; }
+  var html = '<div class="recenthead"><span class="recenttitle">🕒 最近动态</span>' +
+    '<span class="ms">每 60 秒自动更新</span>' +
+    '<button class="btn" id="rerefresh">刷新</button></div>' + groups.map(function (g) {
+    var head = "<b>" + esc(g.name) + '</b><span class="cnt">最新 ' + g.count + " 条</span>";
+    var link = ' <a href="' + esc(toolUrl(g.id)) + '" target="_blank" rel="noopener">打开完整界面 ↗</a>';
+    return '<div class="rgroup"><div class="ghead">' + head + link + "</div>" +
+      g.items.map(function (it) { return itemHtml(it, ""); }).join("") + "</div>";
+  }).join("");
+  box.innerHTML = html;
+  box.classList.remove("hidden");
+  bindDetail(box);
+  var rb = document.getElementById("rerefresh");
+  if (rb) rb.onclick = loadRecent;
+}
+function loadRecent() {
+  fetch("/api/recent").then(function (r) { return r.json(); })
+    .then(renderRecent).catch(function () {});
+}
+
+/* ---------- 联邦搜索（输入即搜 + 作废在途请求） ---------- */
+var searchSeq = 0;
+function doSearch(q) {
+  var seq = ++searchSeq;
+  var box = document.getElementById("results");
+  document.getElementById("recent").classList.add("hidden");
+  box.classList.remove("hidden");
+  box.innerHTML = '<div class="rgroup"><div class="ghead"><b>搜索中…</b></div>' +
+    '<div class="skel"></div><div class="skel"></div><div class="skel"></div></div>';
+  fetch("/api/federated?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (d) {
+    if (seq !== searchSeq) return;  // 已有更新的搜索，丢弃过期响应
+    var q2 = d.q || q;
+    var html = d.groups.map(function (g) {
+      var head;
+      if (g.ok === true) {
+        head = "<b>" + esc(g.name) + '</b><span class="cnt">命中 ' + g.count + " 条</span>";
+      } else if (g.ok === false) {
+        head = "<b>" + esc(g.name) + '</b><span class="err">' + esc(g.error || "不可用") + "</span>";
+      } else {
+        head = "<b>" + esc(g.name) + "</b>";
+      }
+      var link = ' <a href="' + esc(toolUrl(g.id)) + '" target="_blank" rel="noopener">打开完整界面 ↗</a>';
+      var items = g.ok === true && g.items.length
+        ? g.items.map(function (it) { return itemHtml(it, q2); }).join("")
+        : (g.ok === true ? '<div class="empty">该工具没有命中</div>' : "");
+      return '<div class="rgroup"><div class="ghead">' + head + link + "</div>" + items + "</div>";
+    }).join("");
+    box.innerHTML = html || '<div class="empty">没有结果</div>';
+    bindDetail(box);
+  }).catch(function () {
+    if (seq !== searchSeq) return;
+    box.innerHTML = '<div class="empty">搜索请求失败</div>';
+  });
+}
+
+/* ---------- 启动 ---------- */
+var qi = document.getElementById("q");
+var qclear = document.getElementById("qclear");
+var searchTimer = null;
+function triggerSearch() {
+  clearTimeout(searchTimer);
+  var v = qi.value.trim();
+  if (v) { pushHistory(v); doSearch(v); }
+}
+function init() {
+  fetch("/api/tools").then(function (r) { return r.json(); }).then(function (d) {
+    TOOLS = d.tools || [];
+    var sub = document.querySelector(".brand .sub");
+    if (sub) sub.textContent = "本地工具箱 · " + TOOLS.length + " 个工具一个入口";
+    renderGrid();
+    refreshStatus();
+    loadRecent();
+    renderHistory();
+  });
+}
+
+qi.addEventListener("search", triggerSearch);
+qi.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") triggerSearch();
+});
+qi.addEventListener("input", function () {
+  var v = qi.value.trim();
+  qclear.classList.toggle("hidden", !qi.value);
+  renderHistory();
+  clearTimeout(searchTimer);
+  if (!v) {
+    searchSeq++;  // 作废在途搜索
+    document.getElementById("results").classList.add("hidden");
+    document.getElementById("recent").classList.remove("hidden");
+    loadRecent();  // 恢复显示时刷新
+    return;
+  }
+  searchTimer = setTimeout(function () { doSearch(v); }, 300);  // 输入即搜
+});
+var palTimer = null;
+var pinput = document.getElementById("pinput");
+pinput.addEventListener("input", function () {
+  clearTimeout(palTimer);
+  palTimer = setTimeout(palTrigger, 120);
+});
+pinput.addEventListener("keydown", function (e) {
+  if (e.key === "ArrowDown") { e.preventDefault(); palMove(1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); palMove(-1); }
+  else if (e.key === "Enter") { e.preventDefault(); palRun(palSel); }
+});
+document.getElementById("pal").addEventListener("click", function (e) {
+  if (e.target === this) palClose();
+});
+document.getElementById("palbtn").onclick = palOpen;
+qclear.onclick = function () {
+  qi.value = "";
+  qi.dispatchEvent(new Event("input"));
+  qi.focus();
+};
+document.getElementById("themebtn").onclick = cycleTheme;
+document.getElementById("modal").addEventListener("click", function (e) {
+  if (e.target === this) closeModal();
+});
+document.addEventListener("keydown", function (e) {
+  if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === "k") {
+    e.preventDefault();
+    if (document.getElementById("pal").classList.contains("hidden")) palOpen();
+    else palClose();
+    return;
+  }
+  var palOpenNow = !document.getElementById("pal").classList.contains("hidden");
+  var modalOpen = !document.getElementById("modal").classList.contains("hidden");
+  if (e.key === "Escape") {
+    if (palOpenNow) palClose();
+    else if (modalOpen) closeModal();
+    else if (qi.value) { qi.value = ""; qi.dispatchEvent(new Event("input")); }
+  } else if (!palOpenNow && e.key === "/") {
+    var tag = document.activeElement ? document.activeElement.tagName : "";
+    if (!/^(INPUT|TEXTAREA)$/.test(tag)) { e.preventDefault(); qi.focus(); qi.select(); }
+  }
+});
+
+/* ---------- 命令面板（Ctrl+K） ---------- */
+var palItems = [], palSel = 0, palSeq = 0;
+function palActions() {
+  var acts = [];
+  TOOLS.forEach(function (t) {
+    var online = !!(STATUS[t.id] && STATUS[t.id].online);
+    acts.push({ icon: t.icon || "🧰", label: "打开 " + t.name, hint: "端口 " + t.port,
+      run: function () { window.open(t.url, "_blank", "noopener"); } });
+    if (t.bat) acts.push({ icon: "▶️", label: "启动 " + t.name, hint: "新窗口",
+      run: function () { palClose(); launch(t.id); } });
+    if (online && t.bat) acts.push({ icon: "⏹️", label: "停止 " + t.name, hint: "强制结束",
+      run: function () { palClose(); stopTool(t.id); } });
+    acts.push({ icon: "👁️", label: "预览 " + t.name, hint: "弹窗内嵌",
+      run: function () { palClose(); openFrame(t.id); } });
+  });
+  acts.push({ icon: "🎨", label: "切换主题", hint: "自动→亮→暗", run: function () { cycleTheme(); toast("主题：" + document.getElementById("themebtn").textContent); } });
+  acts.push({ icon: "🧽", label: "清空搜索历史", hint: "本机记录", run: function () { localStorage.removeItem("toolhub-history"); renderHistory(); toast("搜索历史已清空"); } });
+  acts.push({ icon: "🔄", label: "立即刷新状态", hint: "全部工具", run: function () { refreshStatus(); toast("已刷新"); } });
+  return acts;
+}
+function palFilter(q) {
+  var actionsOnly = q.charAt(0) === ">";
+  if (actionsOnly) q = q.slice(1).trim();
+  var acts = palActions();
+  if (q) {
+    var needle = q.toLowerCase();
+    acts = acts.filter(function (a) {
+      return (a.label + " " + a.hint).toLowerCase().indexOf(needle) >= 0;
+    });
+  }
+  return { acts: acts, actionsOnly: actionsOnly, q: actionsOnly ? "" : q };
+}
+function palRender(q) {
+  var f = palFilter(q);
+  palItems = f.acts.map(function (a) { return { type: "act", a: a }; });
+  var html = f.acts.map(function (a, i) {
+    return '<div class="pitem' + (i === 0 ? " sel" : "") + '" data-i="' + i + '">' +
+      '<span class="picon">' + esc(a.icon) + '</span><span class="plabel">' + hi(a.label, f.q) +
+      '</span><span class="phint">' + esc(a.hint) + "</span></div>";
+  }).join("");
+  if (!f.actionsOnly && f.q) {
+    html += '<div class="psec">跨工具搜索…</div><div id="presults"></div>';
+  }
+  var list = document.getElementById("plist");
+  list.innerHTML = html || '<div class="pempty">没有匹配的命令</div>';
+  palSel = palItems.length ? 0 : -1;
+  Array.prototype.forEach.call(list.querySelectorAll(".pitem"), function (el) {
+    el.onclick = function () { palRun(parseInt(el.getAttribute("data-i"), 10)); };
+  });
+  if (!f.actionsOnly && f.q) palFetchResults(f.q);
+}
+function palFetchResults(q) {
+  var seq = ++palSeq;
+  setTimeout(function () {  // 面板里扇出做 250ms 去抖，动作过滤仍即时
+    if (seq !== palSeq) return;
+    fetch("/api/federated?q=" + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (d) {
+      if (seq !== palSeq) return;
+      var box = document.getElementById("presults");
+      if (!box) return;
+      var any = false;
+      var html = (d.groups || []).map(function (g) {
+        if (g.ok !== true || !g.items.length) return "";
+        any = true;
+        return '<div class="psec">' + esc(g.name) + " · 命中 " + g.count + " 条</div>" +
+          g.items.slice(0, 3).map(function (it) { return itemHtml(it, q); }).join("");
+      }).join("");
+      box.innerHTML = any ? html : '<div class="pempty">工具里也没有命中</div>';
+      bindDetail(box, true);
+    }).catch(function () {});
+  }, 250);
+}
+function palRun(i) {
+  var item = palItems[i];
+  if (!item) return;
+  if (item.type === "act") { palClose(); item.a.run(); }
+  else if (item.type === "item") { palClose(); item.open(item.el.getAttribute("data-act"), item.el); }
+}
+function palMove(delta) {
+  var list = document.getElementById("plist");
+  var els = list.querySelectorAll(".pitem");
+  if (!els.length) return;
+  els[palSel] && els[palSel].classList.remove("sel");
+  palSel = (palSel + delta + els.length) % els.length;
+  els[palSel].classList.add("sel");
+  els[palSel].scrollIntoView({ block: "nearest" });
+}
+function palOpen() {
+  document.getElementById("pal").classList.remove("hidden");
+  var p = document.getElementById("pinput");
+  p.value = "";
+  palRender("");
+  p.focus();
+}
+function palClose() {
+  document.getElementById("pal").classList.add("hidden");
+  palSeq++;  // 作废在途结果
+}
+function palTrigger() {
+  clearTimeout(searchTimer);
+  var v = document.getElementById("pinput").value;
+  if (v.trim() || v.charAt(0) === ">") palRender(v);
+  else palRender("");
+}
+
+/* ---------- 光标跟随与点击涟漪（简洁风：dot 即时 + ring lerp 拖尾） ---------- */
+function initCursorFollower() {
+  // 系统偏好：减少动态效果 / 触屏设备 → 不启用
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (window.matchMedia && window.matchMedia("(hover: none)").matches) return;
+
+  var dot = document.createElement("div");
+  dot.id = "cdot";
+  var ring = document.createElement("div");
+  ring.id = "cring";
+  document.body.appendChild(dot);
+  document.body.appendChild(ring);
+
+  var mx = -100, my = -100, dx = -100, dy = -100, rx = -100, ry = -100;
+  var seen = false, raf = null, scale = 1;
+  var HOVER_SEL = "a,button,input,textarea,select,label,.chip,.card,.ritem,.pitem,[role=button]";
+
+  function frame() {
+    dx += (mx - dx) * 0.55;   // 点几乎贴住指针
+    dy += (my - dy) * 0.55;
+    rx += (mx - rx) * 0.14;   // 环缓动拖尾（搜索结论：lerp ~0.1 手感最佳）
+    ry += (my - ry) * 0.14;
+    dot.style.transform = "translate3d(" + (dx - 4) + "px," + (dy - 4) + "px,0)";
+    ring.style.transform = "translate3d(" + (rx - 16) + "px," + (ry - 16) + "px,0) scale(" + scale + ")";
+    var dist = Math.abs(mx - rx) + Math.abs(my - ry);
+    raf = dist > 0.4 ? requestAnimationFrame(frame) : null;  // 追上就停帧省 CPU
+  }
+  function wake() { if (!raf) raf = requestAnimationFrame(frame); }
+
+  document.addEventListener("pointermove", function (e) {
+    if (e.pointerType !== "mouse") return;
+    mx = e.clientX; my = e.clientY;
+    if (!seen) { seen = true; dx = rx = mx; dy = ry = my; }
+    dot.style.opacity = "1"; ring.style.opacity = "0.55";
+    wake();
+  }, { passive: true });
+
+  document.addEventListener("mouseover", function (e) {
+    var t = e.target && e.target.closest ? e.target.closest(HOVER_SEL) : null;
+    var next = t ? 1.5 : 1;
+    if (next !== scale) { scale = next; wake(); }
+  }, { passive: true });
+
+  document.addEventListener("pointerdown", function (e) {
+    if (e.pointerType !== "mouse") return;
+    var r = document.createElement("span");  // 点击涟漪：扩散圆环，动画完自删
+    r.className = "ripple";
+    r.style.left = e.clientX + "px";
+    r.style.top = e.clientY + "px";
+    document.body.appendChild(r);
+    r.addEventListener("animationend", function () { r.remove(); });
+  });
+
+  document.documentElement.addEventListener("mouseleave", function () {
+    dot.style.opacity = "0"; ring.style.opacity = "0";
+  });
+  document.documentElement.addEventListener("mouseenter", function () {
+    if (seen) { dot.style.opacity = "1"; ring.style.opacity = "0.55"; }
+  });
+}
+
+applyTheme();
+initCursorFollower();
+init();
+setInterval(refreshStatus, 5000);
+setInterval(loadRecent, 60000);
+</script>
+</body>
+</html>

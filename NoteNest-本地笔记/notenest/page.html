@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NoteNest — 本地 Markdown 笔记</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; margin: 0;
+         height: 100vh; display: flex; flex-direction: column; background: #f5f6fa; }
+  header { background: #343a46; color: #fff; padding: 10px 18px; display: flex;
+           align-items: center; gap: 14px; flex: none; }
+  header h1 { margin: 0; font-size: 17px; }
+  header .muted { color: #aab; font-size: 12px; }
+  main { flex: 1; display: flex; min-height: 0; }
+  /* 侧栏 */
+  #side { width: 290px; flex: none; background: #fff; border-right: 1px solid #e3e6ee;
+          display: flex; flex-direction: column; min-height: 0; }
+  #sideTop { padding: 10px; border-bottom: 1px solid #eef0f5; display: flex; gap: 8px; }
+  #search { flex: 1; padding: 8px 10px; border: 1px solid #ccd2dd; border-radius: 8px;
+            font-size: 13px; background: #fff; color: #222; }
+  #btnNew { padding: 8px 12px; border: 0; border-radius: 8px; background: #2f6f3f;
+            color: #fff; cursor: pointer; font-size: 13px; }
+  #list { flex: 1; overflow-y: auto; }
+  .item { padding: 10px 14px; border-bottom: 1px solid #f0f2f7; cursor: pointer; }
+  .item:hover { background: #f6f8fb; }
+  .item.active { background: #e8f0e9; border-left: 3px solid #2f6f3f; padding-left: 11px; }
+  .item .t { font-size: 14px; font-weight: 600; color: #232833;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .x { font-size: 12px; color: #8a90a0; margin-top: 3px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 编辑区 */
+  #edit { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #bar { padding: 10px 14px; background: #fff; border-bottom: 1px solid #e3e6ee;
+         display: flex; gap: 10px; align-items: center; }
+  #title { flex: 1; font-size: 16px; font-weight: 600; padding: 8px 10px;
+           border: 1px solid #ccd2dd; border-radius: 8px; background: #fff; color: #222; }
+  button.act { padding: 8px 16px; border: 0; border-radius: 8px; cursor: pointer;
+               font-size: 13px; background: #3a63b0; color: #fff; }
+  button.act.green { background: #2f6f3f; }
+  button.act.red { background: #a5443c; }
+  button.act.ghost { background: #6c757d; }
+  button.act:disabled { opacity: .5; cursor: not-allowed; }
+  /* 编辑器 = 透明 textarea 叠在同字体的彩色底衬上，正文颜色边写边可见 */
+  #editorWrap { flex: 1; position: relative; min-height: 0; background: #fff; }
+  #backdrop, #body {
+    position: absolute; inset: 0; margin: 0; border: 0; padding: 16px 20px;
+    box-sizing: border-box; overflow: auto; tab-size: 4;
+    font-family: Consolas, "Microsoft YaHei", monospace; font-size: 14px; line-height: 1.6;
+    white-space: pre-wrap; overflow-wrap: break-word; word-break: normal;
+  }
+  #backdrop { z-index: 1; background: #fff; color: #222; pointer-events: none; }
+  #backdrop .mk { color: #b9c0cf; }
+  #body { z-index: 2; resize: none; outline: none; background: transparent;
+          color: transparent; caret-color: #222; }
+  #body::placeholder { color: #9aa1b1; }
+  #preview { flex: 1; overflow-y: auto; padding: 18px 26px; background: #fff;
+             font-size: 15px; line-height: 1.7; color: #232833; display: none; }
+  #preview h1 { border-bottom: 1px solid #e8ebf2; padding-bottom: 6px; }
+  #preview pre { background: #f4f6f9; border-radius: 8px; padding: 12px 14px;
+                 overflow-x: auto; font-size: 13px; }
+  #preview code { background: #f0f2f7; border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+  #preview pre code { background: none; padding: 0; }
+  #preview blockquote { border-left: 4px solid #c9d4e8; margin: 8px 0; padding: 2px 14px;
+                        color: #55607a; background: #f8f9fc; }
+  /* 颜色点：常驻工具栏，选中文字后一次点击即上色 */
+  #colors { display: flex; gap: 6px; align-items: center; }
+  .dot { width: 21px; height: 21px; padding: 0; border-radius: 50%; cursor: pointer;
+         border: 2px solid #fff; box-shadow: 0 0 0 1px #ccd2dd; }
+  .dot:hover { transform: scale(1.12); }
+  .dot.on { box-shadow: 0 0 0 2px #2f6f3f; }
+  .dot.armed { outline: 2px dashed #3a63b0; outline-offset: 2px; }
+  button.act.on { box-shadow: inset 0 0 0 2px #2f6f3f; }
+  .dot.clear { background: #fff; color: #8a90a0; font-size: 13px; line-height: 1;
+               display: flex; align-items: center; justify-content: center; }
+  #editorWrap.drop { outline: 2px dashed #3a63b0; outline-offset: -6px; }
+  #preview img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 8px 0; }
+  #status { flex: none; padding: 6px 14px; font-size: 12px; color: #8a90a0;
+            background: #fafbfd; border-top: 1px solid #eef0f5; display: flex;
+            justify-content: space-between; }
+  #empty { flex: 1; display: flex; align-items: center; justify-content: center;
+           color: #9aa1b1; font-size: 15px; }
+  .dirty::after { content: " ●"; color: #d19a2f; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📓 NoteNest</h1>
+  <span class="muted" id="stats"></span>
+</header>
+<main>
+  <div id="side">
+    <div id="sideTop">
+      <input id="search" placeholder="搜索笔记（标题/正文）…">
+      <button id="btnNew" title="新建笔记">＋新建</button>
+    </div>
+    <div id="list"></div>
+  </div>
+  <div id="edit" style="display:none">
+    <div id="bar">
+      <input id="title" placeholder="标题">
+      <div id="colors" title="颜色标注：选中文字后点色点（Alt+1~7 上色，Alt+0 去色）"></div>
+      <button id="btnPaint" class="act ghost" title="连续上色：点一下开启，之后每次选中文字自动上色（Esc 退出）">🖌 连续</button>
+      <button id="btnPic" class="act" title="插入图片（也可以直接粘贴或拖拽图片进来）">📷 图片</button>
+      <input id="file" type="file" accept="image/*" multiple hidden>
+      <button id="btnSave" class="act green">保存 (Ctrl+S)</button>
+      <button id="btnToggle" class="act ghost">✏ 编辑</button>
+      <button id="btnDel" class="act red">删除</button>
+    </div>
+    <div id="editorWrap">
+      <div id="backdrop" aria-hidden="true"></div>
+      <textarea id="body" placeholder="Markdown 正文…第一行会被忽略，标题以上方输入框为准；选中文字后点「🎨 颜色」可加色标注（写作 {红}重要{/红}）" spellcheck="false"></textarea>
+    </div>
+    <div id="preview"></div>
+    <div id="status"><span id="dirty">无未保存修改</span><span id="meta"></span></div>
+  </div>
+  <div id="empty">← 选择或新建一条笔记</div>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let current = null;          // 当前笔记 {id,title,content,updated,size}
+let dirty = false;
+let paintKey = "";           // 连续上色：非空 = 刷子已蘸好这个颜色
+let lastColor = "red";       // 上次用过的颜色（刷子默认色）
+let mode = "view";           // "view"（默认查看）| "edit"
+
+const escHtml = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/* ---------- 文字颜色标注 ----------
+   语法 {色名}文字{/色名}：纯文本标记，任何编辑器都能直接读，只有 NoteNest 预览渲染成彩色。
+   色名支持中英文（red/红）或十六进制（{#e11d48}重要{/#e11d48}）。
+   输出颜色只取自下表或严格校验过的 #rgb/#rrggbb，故不可能注入 CSS/HTML。 */
+const PALETTE = [
+  {key: "red",    label: "红", css: "#d64545"},
+  {key: "orange", label: "橙", css: "#d9822b"},
+  {key: "yellow", label: "黄", css: "#b8860b"},
+  {key: "green",  label: "绿", css: "#2f8f4e"},
+  {key: "blue",   label: "蓝", css: "#3a63b0"},
+  {key: "purple", label: "紫", css: "#8a5cd6"},
+  {key: "gray",   label: "灰", css: "#6c757d"},
+];
+const COLOR_ALIAS = {"红": "red", "红色": "red", "橙": "orange", "橙色": "orange",
+                     "黄": "yellow", "黄色": "yellow", "绿": "green", "绿色": "green",
+                     "蓝": "blue", "蓝色": "blue", "紫": "purple", "紫色": "purple",
+                     "灰": "gray", "灰色": "gray"};
+/* 收尾标记必须与开头同名（正则反向引用 \1），普通花括号文本不受影响 */
+const COLOR_MARK = /\{([#\w\u4e00-\u9fa5]{1,20})\}([\s\S]*?)\{\/\1\}/gi;
+
+function colorCss(token) {
+  const t = String(token).toLowerCase();
+  const name = Object.prototype.hasOwnProperty.call(COLOR_ALIAS, t) ? COLOR_ALIAS[t] : t;
+  const hit = PALETTE.find(c => c.key === name);
+  if (hit) return "color:" + hit.css;
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(t)) return "color:" + t;   // 自定义色值
+  return null;                        // 认不出 → 原样保留，不生成任何标签
+}
+function paintColors(s) {
+  /* 多轮替换：嵌套标记（{red}{orange}x{/orange}{/red}）也必须渲染成颜色，不能露出字面量 */
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(COLOR_MARK, (whole, token, body) => {
+      const css = colorCss(token);
+      return css ? '<span style="' + css + '">' + body + '</span>' : whole;
+    });
+  } while (s !== prev);
+  return s;
+}
+/* 只认本机 assets/ 下的图片：禁 http(s)/协议/svg/..，守住"数据不出本机"+免注入 */
+function isLocalAsset(src) {
+  return /^assets\/[a-z0-9]{6,16}\/[a-f0-9]{16}\.(?:png|jpe?g|gif|webp|bmp)$/i.test(src);
+}
+/* ---------- 极简 Markdown 渲染（先转义再解析，防 XSS） ---------- */
+function mdRender(src) {
+  const esc = escHtml;
+  const blocks = [];
+  src = src.replace(/```([\s\S]*?)```/g, (_, code) => {
+    blocks.push("<pre><code>" + esc(code.replace(/^\n+|\n+$/g, "")) + "</code></pre>");
+    return "\u0000" + (blocks.length - 1) + "\u0000";
+  });
+  const inline = s => paintColors(esc(s)
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (whole, alt, src) =>
+      isLocalAsset(src) ? '<img alt="' + alt + '" src="' + src + '" loading="lazy">'
+                        : (alt || "🖼"))
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*\n]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,
+             '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'));
+  const lines = src.split(/\r?\n/);
+  let html = "", list = null, para = [];
+  const flushP = () => { if (para.length) { html += "<p>" + inline(para.join(" ")) + "</p>"; para = []; } };
+  const closeList = () => { if (list) { html += "</" + list + ">"; list = null; } };
+  for (const raw of lines) {
+    const line = raw;
+    const codePh = /^\u0000(\d+)\u0000$/.exec(line.trim());
+    if (codePh) { flushP(); closeList(); html += blocks[+codePh[1]]; continue; }
+    const h = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (h) { flushP(); closeList(); html += "<h" + h[1].length + ">" + inline(h[2]) + "</h" + h[1].length + ">"; continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { flushP(); closeList(); html += "<hr>"; continue; }
+    if (/^\s*>\s?/.test(line)) { flushP(); closeList(); html += "<blockquote>" + inline(line.replace(/^\s*>\s?/, "")) + "</blockquote>"; continue; }
+    const ul = /^\s*[-*]\s+(.+)$/.exec(line);
+    const ol = /^\s*\d+[.、]\s+(.+)$/.exec(line);
+    if (ul) { flushP(); if (list !== "ul") { closeList(); html += "<ul>"; list = "ul"; } html += "<li>" + inline(ul[1]) + "</li>"; continue; }
+    if (ol) { flushP(); if (list !== "ol") { closeList(); html += "<ol>"; list = "ol"; } html += "<li>" + inline(ol[1]) + "</li>"; continue; }
+    if (!line.trim()) { flushP(); closeList(); continue; }
+    para.push(line);
+  }
+  flushP(); closeList();
+  return html.replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[+i]);
+}
+
+/* ---------- API ---------- */
+async function api(path, method, body) {
+  const opt = {method};
+  if (body !== undefined) {
+    opt.headers = {"Content-Type": "application/json"};
+    opt.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opt);
+  const d = await r.json().catch(() => ({error: "响应解析失败"}));
+  if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+  return d;
+}
+function fmtDate(ts) {
+  const d = new Date(ts * 1000), p = n => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function fmtSize(n) { return n < 1024 ? n + " B" : (n / 1024).toFixed(1) + " KB"; }
+
+/* ---------- 列表 ---------- */
+async function loadList(q) {
+  const r = await api("/api/notes" + (q ? "?q=" + encodeURIComponent(q) : ""), "GET");
+  const box = $("list");
+  box.replaceChildren();
+  for (const n of r.notes) {
+    const div = document.createElement("div");
+    div.className = "item" + (current && current.id === n.id ? " active" : "");
+    const t = document.createElement("div"); t.className = "t"; t.textContent = n.title;
+    const x = document.createElement("div"); x.className = "x";
+    x.textContent = n.excerpt || "（空笔记）" + " · " + fmtDate(n.updated);
+    div.append(t, x);
+    div.onclick = () => openNote(n.id);
+    box.append(div);
+  }
+  if (!r.notes.length) {
+    const d = document.createElement("div");
+    d.className = "item muted"; d.style.color = "#9aa1b1";
+    d.textContent = q ? "无匹配结果" : "还没有笔记，点「＋新建」";
+    box.append(d);
+  }
+  const s = await api("/api/stats", "GET");
+  $("stats").textContent = `${s.count} 篇笔记 · ${fmtSize(s.total_size)} · ${s.directory}`;
+}
+
+/* ---------- 打开/编辑 ---------- */
+function splitContent(full) {
+  const m = /^#\s+(.+)\r?\n?/.exec(full);
+  // 去掉标题后紧跟的空行：与 fullContent() 对称，才能"拆分→拼回"完全不变
+  if (m) return {title: m[1].trim(), body: full.slice(m[0].length).replace(/^\n+/, "")};
+  return {title: "", body: full.replace(/^\n+/, "")};
+}
+async function openNote(id, opts) {
+  clearTimeout(autoTimer); clearTimeout(retryTimer); pendingSave = false;
+  if (current && dirty) await doSave(false);       // 先落盘，别把上一条的修改丢了
+  const n = await api("/api/notes/" + id, "GET");
+  current = n;
+  const {title, body} = splitContent(n.content);
+  $("title").value = title;
+  $("body").value = body;
+  $("edit").style.display = "flex";
+  $("empty").style.display = "none";
+  setDirty(false);
+  setMode(opts && opts.edit ? "edit" : "view");    // 默认查看态；新建才直接进编辑
+  $("meta").textContent = `更新于 ${fmtDate(n.updated)} · ${fmtSize(n.size)} · id ${n.id}`;
+  await loadList($("search").value.trim());
+}
+function setDirty(v) {
+  dirty = v;
+  $("dirty").textContent = v ? "有未保存修改" : "无未保存修改";
+  $("dirty").className = v ? "dirty" : "";
+}
+function fullContent() {
+  const t = $("title").value.trim() || "无标题";
+  // 顺手去掉正文开头的空行：否则每次"拆分→拼回"都会多攒一个空行
+  const body = $("body").value.replace(/^#\s+.+\r?\n?/, "").replace(/^\n+/, "");
+  return `# ${t}\n\n${body}`;
+}
+
+/* ---------- 保存/新建/删除 ---------- */
+let saving = false, pendingSave = false, retryTimer = null;
+
+async function doSave(auto) {
+  if (!current) return;
+  if (saving) { pendingSave = true; return; }   // 上一笔还在路上，合并成一笔
+  saving = true;
+  clearTimeout(retryTimer);
+  $("dirty").textContent = (auto ? "自动保存中…" : "保存中…");
+  try {
+    const n = await api("/api/notes/" + current.id, "PUT", {content: fullContent()});
+    current = n;
+    setDirty(false);
+    $("meta").textContent = `更新于 ${fmtDate(n.updated)} · ${fmtSize(n.size)} · id ${n.id}`;
+    await loadList($("search").value.trim());
+    if (auto) { $("dirty").textContent = "已自动保存 " + fmtDate(n.updated); }
+  } catch (e) {
+    setDirty(true);
+    $("dirty").textContent = "保存失败: " + e.message;
+    retryTimer = setTimeout(() => { if (dirty) doSave(auto); }, 8000);  // 失败自动重试
+  } finally {
+    saving = false;
+    if (pendingSave) { pendingSave = false; doSave(auto); }
+  }
+}
+/* 停止输入 2 秒后自动保存 */
+let autoTimer = null;
+function scheduleSave() {
+  if (!current) return;
+  setDirty(true);
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(() => doSave(true), 2000);
+}
+/* 页面关闭/切走时的兜底保存（keepalive 允许请求在页面卸载后继续） */
+function flushSave() {
+  if (!current || !dirty) return;
+  try {
+    fetch("/api/notes/" + current.id, {method: "PUT", keepalive: true,
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({content: fullContent()})});
+  } catch (e) { /* 卸载阶段失败即放弃，静默 */ }
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushSave(); });
+window.addEventListener("beforeunload", flushSave);
+
+$("btnSave").onclick = () => { clearTimeout(autoTimer); doSave(false); };
+$("btnNew").onclick = async () => {
+  const title = prompt("新笔记标题：", "未命名笔记");
+  if (title === null) return;
+  const n = await api("/api/notes", "POST", {title: title || "无标题", content: ""});
+  await loadList($("search").value.trim());
+  await openNote(n.id, {edit: true});     // 新建就是为了写，直接进编辑
+};
+$("btnDel").onclick = async () => {
+  if (!current) return;
+  if (!confirm(`删除「${$("title").value || current.title}」？不可恢复。`)) return;
+  await api("/api/notes/" + current.id, "DELETE");
+  current = null;
+  $("edit").style.display = "none";
+  $("empty").style.display = "flex";
+  await loadList($("search").value.trim());
+};
+$("btnToggle").onclick = async () => {
+  if (mode === "edit") {                 // 「完成」= 保存后回到查看
+    clearTimeout(autoTimer);
+    if (dirty) await doSave(false);
+    setMode("view");
+  } else {
+    setMode("edit");
+  }
+};
+/* ---------- 查看 / 编辑 两种模式（默认查看） ---------- */
+function renderPreview() {
+  $("preview").innerHTML = mdRender(mode === "edit" ? fullContent()
+                                    : (current ? current.content : ""));
+}
+function applyMode() {
+  const editing = mode === "edit";
+  $("editorWrap").style.display = editing ? "block" : "none";
+  $("preview").style.display = editing ? "none" : "block";
+  $("title").style.display = editing ? "" : "none";
+  $("colors").style.display = editing ? "flex" : "none";
+  $("btnPic").style.display = editing ? "" : "none";
+  $("btnPaint").style.display = editing ? "" : "none";
+  $("btnSave").style.display = editing ? "" : "none";
+  if (!editing) paintKey = "";
+  $("btnToggle").textContent = editing ? "👁 完成" : "✏ 编辑";
+  $("btnToggle").title = editing ? "保存并回到查看" : "编辑这条笔记";
+  updatePaintUI();
+  if (editing) refreshBackdrop(); else renderPreview();
+}
+function setMode(m) { mode = m; applyMode(); }
+/* ---------- 颜色工具栏 + 编辑器实时着色 ---------- */
+/* 去掉颜色标记（含嵌套），只留文字 */
+function stripColors(text) {
+  let prev;
+  do { prev = text; text = text.replace(COLOR_MARK, "$2"); } while (text !== prev);
+  return text;
+}
+/* 选区若正好是内文（刚上过色就是这样），把紧贴两侧的同名 {色}…{/色} 一并纳入 */
+function expandOverColor(val, s, e) {
+  const open = /\{([#\w\u4e00-\u9fa5]{1,20})\}$/.exec(val.slice(0, s));
+  const close = /^\{\/([#\w\u4e00-\u9fa5]{1,20})\}/.exec(val.slice(e));
+  if (open && close && open[1].toLowerCase() === close[1].toLowerCase()) {
+    return [s - open[0].length, e + close[0].length];
+  }
+  return [s, e];
+}
+/* 编辑器底衬：颜色标记画成淡灰、内文画成彩色，正文颜色边写边可见 */
+function backdropHtml(html) {
+  const open = /\{([#\w\u4e00-\u9fa5]{1,20})\}/g;
+  let out = "", last = 0, m;
+  while ((m = open.exec(html))) {
+    const css = colorCss(m[1]);
+    if (!css) continue;
+    const close = "{/" + m[1] + "}";
+    const end = html.toLowerCase().indexOf(close.toLowerCase(), m.index + m[0].length);
+    if (end < 0) continue;
+    out += html.slice(last, m.index)
+         + '<span class="mk">' + m[0] + "</span>"
+         + '<span style="' + css + '">' + backdropHtml(html.slice(m.index + m[0].length, end)) + "</span>"
+         + '<span class="mk">' + html.substr(end, close.length) + "</span>";
+    last = end + close.length;
+    open.lastIndex = last;
+  }
+  return out + html.slice(last);
+}
+function refreshBackdrop() {
+  const bd = $("backdrop");
+  if (!bd || !$("body")) return;
+  bd.innerHTML = backdropHtml(escHtml($("body").value)) + "\n";
+  syncBackdrop();
+}
+function syncBackdrop() {
+  const bd = $("backdrop");
+  if (bd) { bd.scrollTop = $("body").scrollTop; bd.scrollLeft = $("body").scrollLeft; }
+}
+/* 常驻色点（不用先开弹层）+ 当前颜色高亮 */
+function buildColors() {
+  const box = $("colors");
+  PALETTE.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "dot"; b.dataset.key = c.key;
+    b.style.background = c.css;
+    b.title = c.label + "色（Alt+" + (i + 1) + "）；再点一次=取消";
+    b.onclick = () => { if (paintKey) setPaint(c.key); else wrapSelection(c.key); };
+    b.onmousedown = ev => ev.preventDefault();   // 别让按钮抢走焦点，否则选区丢失/视图跳动
+    box.append(b);
+  });
+  const clr = document.createElement("button");
+  clr.type = "button"; clr.className = "dot clear"; clr.dataset.key = "none";
+  clr.textContent = "✕"; clr.title = "取消颜色（Alt+0）";
+  clr.onclick = () => unwrapColor();
+  box.append(clr);
+}
+/* ---------- 连续上色（刷子）：选一次颜色，之后选中就自动刷 ---------- */
+function colorLabel(key) {
+  const c = PALETTE.find(x => x.key === key);
+  return c ? c.label : key;
+}
+function setPaint(key) {
+  paintKey = key || "";
+  if (paintKey) lastColor = paintKey;
+  updatePaintUI();
+  if (paintKey) paintTarget();          // 立即刷当前选区
+}
+function updatePaintUI() {
+  const btn = $("btnPaint");
+  if (!btn) return;
+  btn.classList.toggle("on", !!paintKey);
+  btn.textContent = paintKey ? "🖌 " + colorLabel(paintKey) : "🖌 连续";
+  btn.title = paintKey
+    ? "连续上色中：" + colorLabel(paintKey) + "色 —— 选中文字就自动刷上，Esc 退出"
+    : "连续上色：点一下开启，之后每次选中文字自动上色（Esc 退出）";
+  for (const d of $("colors").children) {
+    d.classList.toggle("armed", !!paintKey && d.dataset.key === paintKey);
+  }
+}
+/* 把当前选区刷成刷子颜色；已经是这个颜色就跳过（避免来回开关） */
+function paintTarget() {
+  const ta = $("body");
+  if (!paintKey || mode !== "edit") return;
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  if (e === s) return;                                   // 没选区不刷，免得误伤
+  const [a, b] = expandOverColor(ta.value, s, e);
+  const plain = stripColors(ta.value.slice(a, b));
+  if (ta.value.slice(a, b) === wrapPerLine(plain, paintKey)) return;
+  wrapSelection(paintKey);
+}
+$("btnPaint").onmousedown = ev => ev.preventDefault();
+$("btnPaint").onclick = () => setPaint(paintKey ? "" : (lastColor || "red"));
+function normColor(tok) {
+  const t = String(tok).toLowerCase();
+  return Object.prototype.hasOwnProperty.call(COLOR_ALIAS, t) ? COLOR_ALIAS[t] : t;
+}
+/* 光标/选区所处颜色（用于点亮色点） */
+function colorAtCaret(val, pos) {
+  const re = /\{([#\w\u4e00-\u9fa5]{1,20})\}|\{\/([#\w\u4e00-\u9fa5]{1,20})\}/gi;
+  const stack = []; let m;
+  while ((m = re.exec(val))) {
+    if (m.index >= pos) break;
+    if (m[1]) { if (colorCss(m[1])) stack.push(normColor(m[1])); }
+    else if (m[2] && colorCss(m[2])) {
+      const i = stack.lastIndexOf(normColor(m[2]));
+      if (i >= 0) stack.length = i;
+    }
+  }
+  return stack.length ? stack[stack.length - 1] : "";
+}
+function markActiveColor() {
+  const key = colorAtCaret($("body").value, $("body").selectionStart);
+  for (const d of $("colors").children) d.classList.toggle("on", d.dataset.key === key);
+}
+/* 多行选区要**逐行**包标记：渲染器按行解析，跨行的 {色}…{/色} 会露出字面量 */
+function wrapPerLine(text, key) {
+  return text.split("\n").map(line => {
+    if (line.trim() === "") return line;
+    // 保留行首的 Markdown 结构（列表符号 / 标题井号 / 引用尖括号），只给内容上色
+    const m = /^(\s*(?:[-*+]\s+|\d+[.、]\s+|>\s?|#{1,6}\s+)?)([\s\S]*)$/.exec(line);
+    if (!m || !m[2].trim()) return line;
+    return m[1] + "{" + key + "}" + m[2] + "{/" + key + "}";
+  }).join("\n");
+}
+/* 包住 fn 执行，前后保住 textarea 的滚动位置。
+   原因：textarea 失焦时赋值 .value 会把光标甩到文末，随后 focus() 就把视图滚到底。 */
+function keepScroll(ta, fn) {
+  const top = ta.scrollTop, left = ta.scrollLeft;
+  try { fn(); } finally {
+    ta.scrollTop = top;
+    ta.scrollLeft = left;
+    syncBackdrop();
+  }
+}
+/* 选区边界是否切在 {色} / {/色} 记号中间（这种情况直接不处理，免得拼出半截标记） */
+function insideMarker(val, pos) {
+  const re = /\{[#\w\u4e00-\u9fa5]{1,20}\}|\{\/[#\w\u4e00-\u9fa5]{1,20}\}/gi;
+  let m;
+  while ((m = re.exec(val))) {
+    if (m.index >= pos) break;
+    if (pos > m.index && pos < m.index + m[0].length) return true;
+  }
+  return false;
+}
+/* 上色：再点同一个颜色=取消，换一个颜色=替换（绝不叠加嵌套） */
+function wrapSelection(key) {
+  const ta = $("body");
+  if (insideMarker(ta.value, ta.selectionStart) || insideMarker(ta.value, ta.selectionEnd)) {
+    markActiveColor();
+    return;
+  }
+  if (ta.selectionEnd === ta.selectionStart) {            // 没选中：插入占位词并选中
+    keepScroll(ta, () => {
+      const s = ta.selectionStart, val = ta.value, inner = "重要内容";
+      ta.value = val.slice(0, s) + "{" + key + "}" + inner + "{/" + key + "}" + val.slice(s);
+      const a = s + key.length + 2;
+      ta.focus(); ta.setSelectionRange(a, a + inner.length);
+    });
+  } else {
+    const val = ta.value;
+    const [a, b] = expandOverColor(val, ta.selectionStart, ta.selectionEnd);
+    const plain = stripColors(val.slice(a, b));
+    const wrapped = wrapPerLine(plain, key);
+    const same = val.slice(a, b) === wrapped;
+    keepScroll(ta, () => {
+      ta.value = val.slice(0, a) + (same ? plain : wrapped) + val.slice(b);
+      if (same) ta.setSelectionRange(a, a + plain.length);
+      else if (plain.indexOf("\n") >= 0) ta.setSelectionRange(a, a + wrapped.length);
+      else ta.setSelectionRange(a + key.length + 2, a + key.length + 2 + plain.length);
+      ta.focus();
+    });
+  }
+  lastColor = key;
+  scheduleSave();
+  refreshBackdrop();
+  markActiveColor();
+}
+/* 取消颜色：有选区就处理选区，没有就整篇 */
+function unwrapColor() {
+  const ta = $("body");
+  keepScroll(ta, () => {
+    if (ta.selectionEnd > ta.selectionStart) {
+      const [a, b] = expandOverColor(ta.value, ta.selectionStart, ta.selectionEnd);
+      const cut = stripColors(ta.value.slice(a, b));
+      ta.value = ta.value.slice(0, a) + cut + ta.value.slice(b);
+      ta.setSelectionRange(a, a + cut.length);
+    } else {
+      ta.value = stripColors(ta.value);
+    }
+    ta.focus();
+  });
+  scheduleSave();
+  refreshBackdrop();
+  markActiveColor();
+}
+/* ---------- 图片：选文件 / 粘贴 / 拖拽，存到 assets/<笔记id>/ ---------- */
+async function uploadImage(file) {
+  const r = await fetch("/api/notes/" + current.id + "/assets", {
+    method: "POST", headers: {"Content-Type": file.type || "application/octet-stream"},
+    body: file});
+  const d = await r.json().catch(() => ({error: "响应解析失败"}));
+  if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+  return d.url;
+}
+function insertAtCursor(text) {
+  const ta = $("body");
+  keepScroll(ta, () => {
+    const s = ta.selectionStart, e = ta.selectionEnd, val = ta.value;
+    const pre = val.slice(0, s);
+    const ins = (pre && !pre.endsWith("\n") ? "\n" : "") + text + "\n";
+    ta.value = pre + ins + val.slice(e);
+    ta.setSelectionRange(pre.length + ins.length, pre.length + ins.length);
+    ta.focus();
+  });
+  refreshBackdrop(); markActiveColor(); scheduleSave();
+}
+async function addImages(files) {
+  if (!current || !files || !files.length) return;
+  for (const f of files) {
+    $("dirty").textContent = "上传图片中…";
+    try { insertAtCursor("![](" + await uploadImage(f) + ")"); }
+    catch (err) { $("meta").textContent = "图片上传失败: " + err.message; }
+  }
+  setDirty(dirty);
+}
+$("btnPic").onclick = () => $("file").click();
+$("file").onchange = () => {
+  const fs = Array.from($("file").files || []);
+  $("file").value = "";
+  addImages(fs);
+};
+function filesFromClipboard(ev) {
+  const items = (ev.clipboardData && ev.clipboardData.items) || [];
+  const files = [];
+  for (const it of items) {
+    if (it.kind === "file" && it.type.startsWith("image/")) {
+      const f = it.getAsFile();
+      if (f) files.push(f);
+    }
+  }
+  return files;
+}
+$("body").addEventListener("paste", ev => {
+  const files = filesFromClipboard(ev);
+  if (files.length) { ev.preventDefault(); addImages(files); }   // 截图直接粘进来
+});
+const dropZone = $("editorWrap");
+dropZone.addEventListener("dragover", ev => { ev.preventDefault(); dropZone.classList.add("drop"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drop"));
+dropZone.addEventListener("drop", ev => {
+  ev.preventDefault(); dropZone.classList.remove("drop");
+  const files = Array.from((ev.dataTransfer && ev.dataTransfer.files) || [])
+                      .filter(f => f.type.startsWith("image/"));
+  if (files.length) addImages(files);
+});
+/* ---------- 初始化 ---------- */
+buildColors();
+updatePaintUI();
+refreshBackdrop();
+$("title").oninput = () => scheduleSave();
+$("body").oninput = () => { scheduleSave(); refreshBackdrop(); markActiveColor(); };
+$("body").onscroll = syncBackdrop;
+/* 刷子模式：一次选中动作结束就上色（鼠标拖选 / Shift+方向键） */
+$("body").addEventListener("mouseup", paintTarget);
+$("body").addEventListener("keyup", ev => { if (ev.key === "Shift" || ev.shiftKey) paintTarget(); });
+document.addEventListener("selectionchange", () => {
+  if (document.activeElement === $("body")) markActiveColor();
+});
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    if (current && dirty) $("btnSave").click();
+  }
+  if (e.key === "Escape" && paintKey) { e.preventDefault(); setPaint(""); return; }
+  if (e.altKey && mode === "edit" && current && /^[0-7]$/.test(e.key)) {
+    e.preventDefault();                       // Alt+1~7 上色，Alt+0 去色（Ctrl+数字会被浏览器抢走）
+    if (e.key === "0") unwrapColor();
+    else wrapSelection(PALETTE[Number(e.key) - 1].key);
+  }
+});
+let searchTimer = null;
+$("search").oninput = () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadList($("search").value.trim()), 250);
+};
+
+loadList("");
+</script>
+</body>
+</html>

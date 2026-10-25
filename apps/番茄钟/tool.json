@@ -1,0 +1,21 @@
+{
+  "id": "pomodoro",
+  "name": "番茄钟",
+  "icon": "🍅",
+  "category": "专注效率",
+  "desc": "25 分钟专注计时器：开始/暂停/重置，结束响铃提醒",
+  "version": "0.1",
+  "port": 8661,
+  "launch": { "argv": ["{python}", "cli.py", "serve"] },
+  "search": false,
+  "proxy_prefixes": ["/api"],
+  "status": "ready",
+  "about": {
+    "input": "无需输入，点「开始专注」即可",
+    "output": "计时结束播放提示音（离线，浏览器合成）",
+    "params": [
+      { "name": "时长", "desc": "默认 25 分钟，界面上可调" }
+    ]
+  },
+  "setup_hint": ""
+}
